@@ -4,6 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <cassert>
+#include <unordered_map>
 
 class Location {
 private:
@@ -69,11 +70,15 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(PIPE) \
     TOKEN_TYPE_ENTRY(AND_AND) \
     TOKEN_TYPE_ENTRY(PIPE_PIPE) \
+    TOKEN_TYPE_ENTRY(EQUAL) \
     \
     TOKEN_TYPE_ENTRY(OPEN_PARENTHESIS) \
     TOKEN_TYPE_ENTRY(CLOSE_PARENTHESIS) \
     \
     TOKEN_TYPE_ENTRY(COMMA) \
+    \
+    TOKEN_TYPE_ENTRY(TRUE_KEYWORD) \
+    TOKEN_TYPE_ENTRY(FALSE_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -147,11 +152,17 @@ private:
     const std::string source;
     Location current_location;
     size_t source_pointer;
+    std::unordered_map<std::string, TokenType> keyword_table;
 
 public:
     Tokenizer(const std::string& file_path)
         : source(read_file_as_string(file_path)), current_location(1,1, file_path), source_pointer(0)
-    {}
+    {
+        this->keyword_table = {
+            { "true", TokenType::TRUE_KEYWORD },
+            { "false", TokenType::FALSE_KEYWORD }
+        };
+    }
 
 private:
     char current_char() const {
@@ -210,9 +221,9 @@ private:
                 this->advance_char();
                 if (this->current_char() == '=') {
                     this->advance_char();
-                    return Token(TokenType::BANG_EQUAL, "!=", this->current_location);
+                    return Token(TokenType::BANG_EQUAL, "!=", token_location);
                 } else {
-                    return Token(TokenType::BANG, "!", this->current_location);
+                    return Token(TokenType::BANG, "!", token_location);
                 }
             }
             
@@ -233,12 +244,12 @@ private:
                 this->advance_char();
                 if (this->current_char() == '<') {
                     this->advance_char();
-                    return Token(TokenType::LESS_LESS, "<<", this->current_location);
+                    return Token(TokenType::LESS_LESS, "<<", token_location);
                 } else if (this->current_char() == '=') {
                     this->advance_char();
-                    return Token(TokenType::LESS_EQUAL, "<=", this->current_location);
+                    return Token(TokenType::LESS_EQUAL, "<=", token_location);
                 } else {
-                    return Token(TokenType::LESS, "<", this->current_location);
+                    return Token(TokenType::LESS, "<", token_location);
                 }
             }
             
@@ -247,12 +258,12 @@ private:
                 this->advance_char();
                 if (this->current_char() == '>') {
                     this->advance_char();
-                    return Token(TokenType::GREATER_GREATER, ">>", this->current_location);
+                    return Token(TokenType::GREATER_GREATER, ">>", token_location);
                 } else if (this->current_char() == '=') {
                     this->advance_char();
-                    return Token(TokenType::GREATER_EQUAL, ">=", this->current_location);
+                    return Token(TokenType::GREATER_EQUAL, ">=", token_location);
                 } else {
-                    return Token(TokenType::GREATER, ">", this->current_location);
+                    return Token(TokenType::GREATER, ">", token_location);
                 }
             }
             
@@ -261,10 +272,9 @@ private:
                 this->advance_char();
                 if (this->current_char() == '=') {
                     this->advance_char();
-                    return Token(TokenType::EQUAL_EQUAL, "==", this->current_location);
+                    return Token(TokenType::EQUAL_EQUAL, "==", token_location);
                 } else {
-                    std::cerr << token_location << ": LEX_ERROR: Expected '=' after '=' character" << std::endl;
-                    std::exit(1);
+                    return Token(TokenType::EQUAL, "=", token_location);
                 }
             }
             
@@ -273,9 +283,9 @@ private:
                 this->advance_char();
                 if (this->current_char() == '&') {
                     this->advance_char();
-                    return Token(TokenType::AND_AND, "&&", this->current_location);
+                    return Token(TokenType::AND_AND, "&&", token_location);
                 } else {
-                    return Token(TokenType::AND, "&", this->current_location);
+                    return Token(TokenType::AND, "&", token_location);
                 }
             }
             
@@ -284,16 +294,16 @@ private:
                 this->advance_char();
                 if (this->current_char() == '|') {
                     this->advance_char();
-                    return Token(TokenType::PIPE_PIPE, "||", this->current_location);
+                    return Token(TokenType::PIPE_PIPE, "||", token_location);
                 } else {
-                    return Token(TokenType::PIPE, "|", this->current_location);
+                    return Token(TokenType::PIPE, "|", token_location);
                 }
             }
             
             case '^': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                return Token(TokenType::HAT, "^", this->current_location);
+                return Token(TokenType::HAT, "^", token_location);
             }
             
             case ',': {
@@ -340,7 +350,11 @@ private:
                     
                     size_t end_pointer = this->source_pointer;
                     std::string name_string = this->source.substr(start_pointer, end_pointer-start_pointer);
-                    return Token(TokenType::NAME, name_string, start_location);
+                    if (this->keyword_table.contains(name_string)) {
+                        return Token(this->keyword_table[name_string], name_string, start_location);
+                    } else {
+                        return Token(TokenType::NAME, name_string, start_location);
+                    }
                 } else {
                     std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->current_char() << "'" << std::endl;
                     std::exit(1);
@@ -520,6 +534,9 @@ private:
     }
 
     // Refer to https://en.cppreference.com/w/c/language/operator_precedence
+    // Precedences are handled as:
+    //      precedence(+) > precedence(*)
+    //      precedence(SOMETHING_THAT_IS_NOT_AN_OPERATOR) = 0
     int get_binary_precedence(TokenType token_type) {
         switch (token_type) {
             case TokenType::STAR:
@@ -550,6 +567,8 @@ private:
                 return 11;
             case TokenType::PIPE_PIPE:
                 return 12;
+            case TokenType::EQUAL:
+                return 13;
             default:
                 return 0; // Not an operator
         }
@@ -570,7 +589,7 @@ private:
         Token next_operator = this->get_current_token();
         int operator_precedence = this->get_binary_precedence(next_operator.get_type());
         while (
-                (parent_precedence == -1 && operator_precedence != 0) ||
+                (parent_precedence == -1 && operator_precedence != 0) || // A parent precedence of -1 indicates that we are at the top level of a binary expression
                 (0 < operator_precedence && operator_precedence < parent_precedence)
         ) {
             (void)this->consume_token();
@@ -603,6 +622,8 @@ private:
         Token current_token = this->get_current_token();
         std::unique_ptr<Expression> left;
         switch (current_token.get_type()) {
+            case TokenType::TRUE_KEYWORD:
+            case TokenType::FALSE_KEYWORD:
             case TokenType::INT_LITERAL:
                 left = std::make_unique<LiteralExpression>(this->consume_token());
                 break;
