@@ -47,6 +47,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
 
 #define TOKEN_TYPE_LIST \
     TOKEN_TYPE_ENTRY(INT_LITERAL) \
+    TOKEN_TYPE_ENTRY(NAME) \
     \
     TOKEN_TYPE_ENTRY(PLUS) \
     TOKEN_TYPE_ENTRY(MINUS) \
@@ -71,6 +72,9 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     \
     TOKEN_TYPE_ENTRY(OPEN_PARENTHESIS) \
     TOKEN_TYPE_ENTRY(CLOSE_PARENTHESIS) \
+    \
+    TOKEN_TYPE_ENTRY(COMMA) \
+    \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
 #define TOKEN_TYPE_ENTRY(TOKEN_TYPE) TOKEN_TYPE,
@@ -149,8 +153,8 @@ public:
         : source(read_file_as_string(file_path)), current_location(1,1, file_path), source_pointer(0)
     {}
 
-
-    char curr_char() const {
+private:
+    char current_char() const {
         if (this->source_pointer > this->source.length()) {
             return '\0';
         }
@@ -159,7 +163,7 @@ public:
     }
 
     void advance_char() {
-        if (this->curr_char() == '\n') {
+        if (this->current_char() == '\n') {
             this->current_location.advance_line();
         } else {
             this->current_location.advance_col();
@@ -167,12 +171,16 @@ public:
         this->source_pointer += 1;
     }
 
+    static bool is_name_character(char c) {
+        return std::isalnum(c) || std::isdigit(c) || c == '_';  
+    }
+
     Token next_token() {
-        while (std::isspace(this->curr_char())) {
+        while (std::isspace(this->current_char())) {
             this->advance_char();
         }
         
-        switch (this->curr_char()) {
+        switch (this->current_char()) {
             case '+': {
                 Token plus_token = Token(TokenType::PLUS, "+", this->current_location);
                 this->advance_char();
@@ -200,7 +208,7 @@ public:
             case '!': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '=') {
+                if (this->current_char() == '=') {
                     this->advance_char();
                     return Token(TokenType::BANG_EQUAL, "!=", this->current_location);
                 } else {
@@ -223,10 +231,10 @@ public:
             case '<': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '<') {
+                if (this->current_char() == '<') {
                     this->advance_char();
                     return Token(TokenType::LESS_LESS, "<<", this->current_location);
-                } else if (this->curr_char() == '=') {
+                } else if (this->current_char() == '=') {
                     this->advance_char();
                     return Token(TokenType::LESS_EQUAL, "<=", this->current_location);
                 } else {
@@ -237,10 +245,10 @@ public:
             case '>': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '>') {
+                if (this->current_char() == '>') {
                     this->advance_char();
                     return Token(TokenType::GREATER_GREATER, ">>", this->current_location);
-                } else if (this->curr_char() == '=') {
+                } else if (this->current_char() == '=') {
                     this->advance_char();
                     return Token(TokenType::GREATER_EQUAL, ">=", this->current_location);
                 } else {
@@ -251,7 +259,7 @@ public:
             case '=': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '=') {
+                if (this->current_char() == '=') {
                     this->advance_char();
                     return Token(TokenType::EQUAL_EQUAL, "==", this->current_location);
                 } else {
@@ -263,7 +271,7 @@ public:
             case '&': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '&') {
+                if (this->current_char() == '&') {
                     this->advance_char();
                     return Token(TokenType::AND_AND, "&&", this->current_location);
                 } else {
@@ -274,7 +282,7 @@ public:
             case '|': {
                 Location token_location = this->current_location;
                 this->advance_char();
-                if (this->curr_char() == '|') {
+                if (this->current_char() == '|') {
                     this->advance_char();
                     return Token(TokenType::PIPE_PIPE, "||", this->current_location);
                 } else {
@@ -286,6 +294,12 @@ public:
                 Location token_location = this->current_location;
                 this->advance_char();
                 return Token(TokenType::HAT, "^", this->current_location);
+            }
+            
+            case ',': {
+                Token comma_token = Token(TokenType::COMMA, ",", this->current_location);
+                this->advance_char();
+                return comma_token;
             }
             
             case '(': {
@@ -305,25 +319,37 @@ public:
             }
             
             default: {
-                if (std::isdigit(this->curr_char())) {
+                if (std::isdigit(this->current_char())) {
                     size_t start_pointer = this->source_pointer;
                     Location start_location = this->current_location;
                     
-                    while (std::isdigit(this->curr_char())) {
+                    while (std::isdigit(this->current_char())) {
                         this->advance_char();
                     }
                     
                     size_t end_pointer = this->source_pointer;
                     std::string int_literal_string = this->source.substr(start_pointer, end_pointer-start_pointer);
                     return Token(TokenType::INT_LITERAL, int_literal_string, start_location);
+                } else if (is_name_character(this->current_char())) {
+                    size_t start_pointer = this->source_pointer;
+                    Location start_location = this->current_location;
+                    
+                    while (is_name_character(this->current_char())) {
+                        this->advance_char();
+                    }
+                    
+                    size_t end_pointer = this->source_pointer;
+                    std::string name_string = this->source.substr(start_pointer, end_pointer-start_pointer);
+                    return Token(TokenType::NAME, name_string, start_location);
                 } else {
-                    std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->curr_char() << "'" << std::endl;
+                    std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->current_char() << "'" << std::endl;
                     std::exit(1);
                 }
             }
         }
     }
 
+public:
     std::vector<Token> collect_tokens() {
         std::vector<Token> token_vector;
         
@@ -402,6 +428,47 @@ public:
     }
 
     ~LiteralExpression() {}
+};
+
+class VariableExpression : public Expression {
+private:
+    Token variable_name;
+public:
+    VariableExpression(const Token& variable_name)
+        : Expression(variable_name.get_location()), variable_name(variable_name) 
+    {}
+    
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        for (size_t i = 0; i < layer; i++) {
+            output_stream << "\t";
+        }
+        output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
+    }
+
+    ~VariableExpression() {}
+};
+
+class CallExpression : public Expression {
+private:
+    std::unique_ptr<Expression> called;
+    std::vector<std::unique_ptr<Expression>> arguments;
+public:
+    CallExpression(std::unique_ptr<Expression> called, std::vector<std::unique_ptr<Expression>>& arguments)
+        : Expression(called->get_location()), called(std::move(called)), arguments(std::move(arguments)) 
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        for (size_t i = 0; i < layer; i++) {
+            output_stream << "\t";
+        }
+        output_stream << "CallExpression" << std::endl;
+        this->called->append_to_output_stream(output_stream, layer+1);
+        for (const auto& argument : this->arguments) {
+            argument->append_to_output_stream(output_stream, layer+2);
+        }
+    }
+
+    ~CallExpression() {}
 };
 
 class UnaryExpression : public Expression {
@@ -515,29 +582,67 @@ private:
         return left;
     }
 
-    std::unique_ptr<Expression> parse_primary_expression() {
+    std::unique_ptr<Expression> parse_unary_expression() {
         Token current_token = this->get_current_token();
         switch (current_token.get_type()) {
-            case TokenType::INT_LITERAL:
-                return std::make_unique<LiteralExpression>(this->consume_token());
-
-            case TokenType::OPEN_PARENTHESIS: {
-                (void)this->consume_token();
-                auto inner_expression = this->parse_expression();
-                this->expect_token(TokenType::CLOSE_PARENTHESIS);
-                return inner_expression;
-            }
-
+            // Unary operators
+            case TokenType::TILDE:
             case TokenType::BANG:
             case TokenType::MINUS:
             case TokenType::PLUS: {
                 Token operator_token = this->consume_token();
-                auto operand = this->parse_primary_expression();
+                auto operand = this->parse_unary_expression();
                 return std::make_unique<UnaryExpression>(operator_token, std::move(operand));
+            }
+            default:
+                return this->parse_primary_expression();
+        }
+    }
+
+    std::unique_ptr<Expression> parse_primary_expression() {
+        Token current_token = this->get_current_token();
+        std::unique_ptr<Expression> left;
+        switch (current_token.get_type()) {
+            case TokenType::INT_LITERAL:
+                left = std::make_unique<LiteralExpression>(this->consume_token());
+                break;
+            case TokenType::OPEN_PARENTHESIS: {
+                (void)this->consume_token();
+                auto inner_expression = this->parse_expression();
+                this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                left = std::move(inner_expression);
+                break;
+            }
+            case TokenType::NAME: {
+                left = std::make_unique<VariableExpression>(this->consume_token());
+                break;
             }
             default:
                 std::cerr << current_token.get_location() << ": PARSE_ERROR: Unexpected token of type <" << current_token.get_type() << "> at the beginning of a primary expression." << std::endl;
                 std::exit(1);
+        }
+
+        for (;;) {
+            current_token = this->get_current_token();
+            if (current_token.get_type() == TokenType::OPEN_PARENTHESIS) {
+                (void)this->consume_token();
+                std::vector<std::unique_ptr<Expression>> arguments;
+                if (this->get_current_token().get_type() != TokenType::CLOSE_PARENTHESIS) {
+                    for (;;) {
+                        auto argument_expression = this->parse_expression();
+                        arguments.push_back(std::move(argument_expression));
+                        if (this->get_current_token().get_type() == TokenType::COMMA) {
+                            (void)this->consume_token();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                left = std::make_unique<CallExpression>(std::move(left), arguments);
+            } else {
+                return left;
+            }
         }
     }
 
