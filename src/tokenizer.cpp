@@ -76,6 +76,9 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(TRUE_KEYWORD) \
     TOKEN_TYPE_ENTRY(FALSE_KEYWORD) \
     TOKEN_TYPE_ENTRY(VAR_KEYWORD) \
+    TOKEN_TYPE_ENTRY(IF_KEYWORD) \
+    TOKEN_TYPE_ENTRY(ELSE_KEYWORD) \
+    TOKEN_TYPE_ENTRY(WHILE_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -159,6 +162,9 @@ public:
             { "true", TokenType::TRUE_KEYWORD },
             { "false", TokenType::FALSE_KEYWORD },
             { "var", TokenType::VAR_KEYWORD },
+            { "if", TokenType::IF_KEYWORD },
+            { "else", TokenType::ELSE_KEYWORD },
+            { "while", TokenType::WHILE_KEYWORD },
         };
     }
 

@@ -1,4 +1,5 @@
 {
-    var x = 23;
-    print(x);
+    while (true) {
+        print(23);
+    }
 }

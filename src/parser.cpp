@@ -79,30 +79,60 @@ public:
 
     std::unique_ptr<Statement> parse_statement() {
         switch (this->get_current_token().get_type()) {
-            case TokenType::VAR_KEYWORD: {
-                Token var_token = this->consume_token();
-                Token variable_name = this->expect_token(TokenType::NAME);
-                (void) this->expect_token(TokenType::EQUAL);
-                auto defining_expression = this->parse_expression();
-                (void) this->expect_token(TokenType::SEMI_COLON);
-                return std::make_unique<DefinitionStatement>(var_token.get_location(), variable_name, std::move(defining_expression));
-            }
-
-            case TokenType::OPEN_CURLY_BRACE: {
-                Token open_curly_brace_token = this->consume_token();
-                std::vector<std::unique_ptr<Statement>> sub_statements;
-                while (this->get_current_token().get_type() != TokenType::CLOSE_CURLY_BRACE) {
-                    auto statement = this->parse_statement();
-                    sub_statements.push_back(std::move(statement));
+            case TokenType::VAR_KEYWORD:
+                {
+                    Token var_token = this->consume_token();
+                    Token variable_name = this->expect_token(TokenType::NAME);
+                    (void) this->expect_token(TokenType::EQUAL);
+                    auto defining_expression = this->parse_expression();
+                    (void) this->expect_token(TokenType::SEMI_COLON);
+                    return std::make_unique<DefinitionStatement>(var_token.get_location(), variable_name, std::move(defining_expression));
                 }
-                return std::make_unique<BlockStatement>(open_curly_brace_token.get_location(), sub_statements);
-            }
 
-            default: {
-                auto expression = this->parse_expression();
-                this->expect_token(TokenType::SEMI_COLON);
-                return std::make_unique<ExpressionStatement>(std::move(expression));
-            }
+            case TokenType::OPEN_CURLY_BRACE:
+                {
+                    Token open_curly_brace_token = this->consume_token();
+                    std::vector<std::unique_ptr<Statement>> sub_statements;
+                    while (this->get_current_token().get_type() != TokenType::CLOSE_CURLY_BRACE) {
+                        auto statement = this->parse_statement();
+                        sub_statements.push_back(std::move(statement));
+                    }
+                    (void) this->expect_token(TokenType::CLOSE_CURLY_BRACE);
+                    return std::make_unique<BlockStatement>(open_curly_brace_token.get_location(), sub_statements);
+                }
+
+            case TokenType::IF_KEYWORD:
+                {
+                    Token if_keyword_token = this->consume_token();
+                    (void) this->expect_token(TokenType::OPEN_PARENTHESIS);
+                    auto condition = this->parse_expression();
+                    (void) this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                    auto then_body = this->parse_statement();
+                    if (this->get_current_token().get_type() == TokenType::ELSE_KEYWORD) {
+                        (void) this->consume_token();
+                        auto else_body = this->parse_statement();
+                        return std::make_unique<ElifStatement>(if_keyword_token.get_location(), std::move(condition), std::move(then_body), std::move(else_body));
+                    } else {
+                        return std::make_unique<IfStatement>(if_keyword_token.get_location(), std::move(condition), std::move(then_body));
+                    }
+                }
+            
+            case TokenType::WHILE_KEYWORD:
+                {
+                    Token while_keyword_token = this->consume_token();
+                    (void) this->expect_token(TokenType::OPEN_PARENTHESIS);
+                    auto condition = this->parse_expression();
+                    (void) this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                    auto body = this->parse_statement();
+                    return std::make_unique<WhileStatement>(while_keyword_token.get_location(), std::move(condition), std::move(body));
+                }
+
+            default:
+                {
+                    auto expression = this->parse_expression();
+                    this->expect_token(TokenType::SEMI_COLON);
+                    return std::make_unique<ExpressionStatement>(std::move(expression));
+                }
             
         }
     }
@@ -167,6 +197,7 @@ private:
                 std::exit(1);
         }
 
+        // Parse suffixes like ...(...) or ...[...]
         for (;;) {
             current_token = this->get_current_token();
             if (current_token.get_type() == TokenType::OPEN_PARENTHESIS) {
