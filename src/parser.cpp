@@ -68,7 +68,7 @@ private:
         }
     }
 public:
-    Parser(std::vector<Token>& tokens)
+    Parser(std::vector<Token> tokens)
         : tokens(std::move(tokens)), token_pointer(0)
     {}
 
@@ -98,7 +98,7 @@ public:
                         sub_statements.push_back(std::move(statement));
                     }
                     (void) this->expect_token(TokenType::CLOSE_CURLY_BRACE);
-                    return std::make_unique<BlockStatement>(open_curly_brace_token.get_location(), sub_statements);
+                    return std::make_unique<BlockStatement>(open_curly_brace_token.get_location(), std::move(sub_statements));
                 }
 
             case TokenType::IF_KEYWORD:
@@ -125,6 +125,20 @@ public:
                     (void) this->expect_token(TokenType::CLOSE_PARENTHESIS);
                     auto body = this->parse_statement();
                     return std::make_unique<WhileStatement>(while_keyword_token.get_location(), std::move(condition), std::move(body));
+                }
+
+            case TokenType::BREAK_KEYWORD:
+                {
+                    Token break_keyword_token = this->consume_token();
+                    this->expect_token(TokenType::SEMI_COLON);
+                    return std::make_unique<BreakStatement>(break_keyword_token.get_location());
+                }
+                
+            case TokenType::CONTINUE_KEYWORD:
+                {
+                    Token continue_keyword_token = this->consume_token();
+                    this->expect_token(TokenType::SEMI_COLON);
+                    return std::make_unique<ContinueStatement>(continue_keyword_token.get_location());
                 }
 
             default:
@@ -191,6 +205,27 @@ private:
                     left = std::move(inner_expression);
                     break;
                 }
+
+            // List Literal
+            case TokenType::OPEN_SQUARE_BRACKET:
+                {
+                    Token open_square_bracket_token = this->consume_token();
+                    std::vector<std::unique_ptr<Expression>> element_initializers;
+                    if (this->get_current_token().get_type() != TokenType::CLOSE_SQUARE_BRACKET) {
+                        for (;;) {
+                            auto element_initializer = this->parse_expression();
+                            element_initializers.push_back(std::move(element_initializer));
+                            if (this->get_current_token().get_type() == TokenType::COMMA) {
+                                (void) this->consume_token();
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    (void) this->expect_token(TokenType::CLOSE_SQUARE_BRACKET);
+                    return std::make_unique<ListLiteralExpression>(open_square_bracket_token.get_location(), std::move(element_initializers));
+                }
+
             case TokenType::NAME:
                 left = std::make_unique<VariableExpression>(this->consume_token());
                 break;
@@ -202,24 +237,37 @@ private:
         // Parse suffixes like ...(...) or ...[...]
         for (;;) {
             current_token = this->get_current_token();
-            if (current_token.get_type() == TokenType::OPEN_PARENTHESIS) {
-                (void)this->consume_token();
-                std::vector<std::unique_ptr<Expression>> arguments;
-                if (this->get_current_token().get_type() != TokenType::CLOSE_PARENTHESIS) {
-                    for (;;) {
-                        auto argument_expression = this->parse_expression();
-                        arguments.push_back(std::move(argument_expression));
-                        if (this->get_current_token().get_type() == TokenType::COMMA) {
-                            (void)this->consume_token();
-                        } else {
-                            break;
+            switch (current_token.get_type()) {
+                case TokenType::OPEN_PARENTHESIS:
+                    {
+                        (void)this->consume_token();
+                        std::vector<std::unique_ptr<Expression>> arguments;
+                        if (this->get_current_token().get_type() != TokenType::CLOSE_PARENTHESIS) {
+                            for (;;) {
+                                auto argument_expression = this->parse_expression();
+                                arguments.push_back(std::move(argument_expression));
+                                if (this->get_current_token().get_type() == TokenType::COMMA) {
+                                    (void)this->consume_token();
+                                } else {
+                                    break;
+                                }
+                            }
                         }
+                        this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                        left = std::make_unique<CallExpression>(std::move(left), std::move(arguments));
+                        break;
                     }
-                }
-                this->expect_token(TokenType::CLOSE_PARENTHESIS);
-                left = std::make_unique<CallExpression>(std::move(left), arguments);
-            } else {
-                return left;
+
+                case TokenType::OPEN_SQUARE_BRACKET:
+                    {
+                        (void) this->consume_token();
+                        auto index = this->parse_expression();
+                        (void) this->expect_token(TokenType::CLOSE_SQUARE_BRACKET);
+                        left = std::make_unique<IndexingExpression>(std::move(left), std::move(index));
+                        break;
+                    }
+                default:
+                    return left;
             }
         }
     }

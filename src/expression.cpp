@@ -80,7 +80,7 @@ private:
     std::unique_ptr<Expression> called;
     std::vector<std::unique_ptr<Expression>> arguments;
 public:
-    CallExpression(std::unique_ptr<Expression> called, std::vector<std::unique_ptr<Expression>>& arguments)
+    CallExpression(std::unique_ptr<Expression> called, std::vector<std::unique_ptr<Expression>> arguments)
         : Expression(called->get_location()), called(std::move(called)), arguments(std::move(arguments)) 
     {}
 
@@ -112,5 +112,41 @@ public:
     }
 
     ~UnaryExpression() {}
+};
+
+class ListLiteralExpression : public Expression {
+private:
+    std::vector<std::unique_ptr<Expression>> element_initializers;
+public:
+    ListLiteralExpression(const Location& start_location, std::vector<std::unique_ptr<Expression>> element_initializers)
+        : Expression(start_location), element_initializers(std::move(element_initializers))
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "ListLiteralExpression" << std::endl;
+        for (size_t i = 0; i < this->element_initializers.size(); i++) {
+            this->element_initializers[i]->append_to_output_stream(output_stream, layer + 1);
+        }
+    }
+
+    ~ListLiteralExpression() {}
+};
+
+class IndexingExpression : public Expression {
+private:
+    std::unique_ptr<Expression> operand;
+    std::unique_ptr<Expression> index;
+public:
+    IndexingExpression(std::unique_ptr<Expression> operand, std::unique_ptr<Expression> index)
+        : Expression(operand->get_location()), operand(std::move(operand)), index(std::move(index))
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "IndexingExpression" << std::endl;
+        this->operand->append_to_output_stream(output_stream, layer + 1);
+        this->index->append_to_output_stream(output_stream, layer + 1);
+    }
 };
 

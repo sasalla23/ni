@@ -71,6 +71,8 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(CLOSE_PARENTHESIS) \
     TOKEN_TYPE_ENTRY(OPEN_CURLY_BRACE) \
     TOKEN_TYPE_ENTRY(CLOSE_CURLY_BRACE) \
+    TOKEN_TYPE_ENTRY(OPEN_SQUARE_BRACKET) \
+    TOKEN_TYPE_ENTRY(CLOSE_SQUARE_BRACKET) \
     \
     TOKEN_TYPE_ENTRY(COMMA) \
     TOKEN_TYPE_ENTRY(SEMI_COLON) \
@@ -81,6 +83,8 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(IF_KEYWORD) \
     TOKEN_TYPE_ENTRY(ELSE_KEYWORD) \
     TOKEN_TYPE_ENTRY(WHILE_KEYWORD) \
+    TOKEN_TYPE_ENTRY(BREAK_KEYWORD) \
+    TOKEN_TYPE_ENTRY(CONTINUE_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -167,6 +171,8 @@ public:
             { "if", TokenType::IF_KEYWORD },
             { "else", TokenType::ELSE_KEYWORD },
             { "while", TokenType::WHILE_KEYWORD },
+            { "break", TokenType::BREAK_KEYWORD },
+            { "continue", TokenType::CONTINUE_KEYWORD },
         };
     }
 
@@ -365,6 +371,20 @@ private:
                     Token close_curly_brace_token = Token(TokenType::CLOSE_CURLY_BRACE, "}", this->current_location);
                     this->advance_char();
                     return close_curly_brace_token;
+                }
+            
+            case '[':
+                {
+                    Token open_square_bracket_token = Token(TokenType::OPEN_SQUARE_BRACKET, "[", this->current_location);
+                    this->advance_char();
+                    return open_square_bracket_token;
+                }
+            
+            case ']':
+                {
+                    Token close_square_bracket_token = Token(TokenType::CLOSE_SQUARE_BRACKET, "]", this->current_location);
+                    this->advance_char();
+                    return close_square_bracket_token;
                 }
 
             case '\0':

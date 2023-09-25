@@ -20,7 +20,7 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
 int main(void) {
     Tokenizer tokenizer("test.ni");
     auto tokens = tokenizer.collect_tokens();
-    Parser parser(tokens);
+    Parser parser(std::move(tokens));
     auto statement = parser.parse_statement();
     std::cout << *statement;
 

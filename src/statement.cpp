@@ -59,7 +59,7 @@ class BlockStatement : public Statement {
 private:
     std::vector<std::unique_ptr<Statement>> sub_statements;
 public:
-    BlockStatement(const Location& start_location, std::vector<std::unique_ptr<Statement>>& sub_statements)
+    BlockStatement(const Location& start_location, std::vector<std::unique_ptr<Statement>> sub_statements)
         : Statement(start_location), sub_statements(std::move(sub_statements))
     {}
 
@@ -130,7 +130,31 @@ public:
         this->condition->append_to_output_stream(output_stream, layer + 1);
         this->body->append_to_output_stream(output_stream, layer + 1);
     }
+    
+    ~WhileStatement() {}
 };
 
-// TODO: WhileStatement
+class BreakStatement : public Statement {
+public:
+    BreakStatement(const Location& start_location) : Statement(start_location) {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "BreakStatement" << std::endl;
+    }
+
+    ~BreakStatement() {}
+};
+
+class ContinueStatement : public Statement {
+public:
+    ContinueStatement(const Location& start_location) : Statement(start_location) {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "ContinueStatement" << std::endl;
+    }
+
+    ~ContinueStatement() {}
+};
 
