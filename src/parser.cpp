@@ -179,19 +179,21 @@ private:
             case TokenType::TRUE_KEYWORD:
             case TokenType::FALSE_KEYWORD:
             case TokenType::INT_LITERAL:
+            case TokenType::FLOAT_LITERAL:
+            case TokenType::STRING_LITERAL:
                 left = std::make_unique<LiteralExpression>(this->consume_token());
                 break;
-            case TokenType::OPEN_PARENTHESIS: {
-                (void)this->consume_token();
-                auto inner_expression = this->parse_expression();
-                this->expect_token(TokenType::CLOSE_PARENTHESIS);
-                left = std::move(inner_expression);
-                break;
-            }
-            case TokenType::NAME: {
+            case TokenType::OPEN_PARENTHESIS:
+                {
+                    (void)this->consume_token();
+                    auto inner_expression = this->parse_expression();
+                    this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                    left = std::move(inner_expression);
+                    break;
+                }
+            case TokenType::NAME:
                 left = std::make_unique<VariableExpression>(this->consume_token());
                 break;
-            }
             default:
                 std::cerr << current_token.get_location() << ": PARSE_ERROR: Unexpected token of type <" << current_token.get_type() << "> at the beginning of a primary expression." << std::endl;
                 std::exit(1);

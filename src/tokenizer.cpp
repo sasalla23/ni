@@ -41,6 +41,8 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
 
 #define TOKEN_TYPE_LIST \
     TOKEN_TYPE_ENTRY(INT_LITERAL) \
+    TOKEN_TYPE_ENTRY(FLOAT_LITERAL) \
+    TOKEN_TYPE_ENTRY(STRING_LITERAL) \
     TOKEN_TYPE_ENTRY(NAME) \
     \
     TOKEN_TYPE_ENTRY(PLUS) \
@@ -196,192 +198,253 @@ private:
         }
         
         switch (this->current_char()) {
-            case '+': {
-                Token plus_token = Token(TokenType::PLUS, "+", this->current_location);
-                this->advance_char();
-                return plus_token;
-            }
-            
-            case '-': {
-                Token minus_token = Token(TokenType::MINUS, "-", this->current_location);
-                this->advance_char();
-                return minus_token;
-            }
-            
-            case '*': {
-                Token star_token = Token(TokenType::STAR, "*", this->current_location);
-                this->advance_char();
-                return star_token;
-            }
-            
-            case '/': {
-                Token slash_token = Token(TokenType::SLASH, "/", this->current_location);
-                this->advance_char();
-                return slash_token;
-            }
-            
-            case '!': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '=') {
+            case '+':
+                {
+                    Token plus_token = Token(TokenType::PLUS, "+", this->current_location);
                     this->advance_char();
-                    return Token(TokenType::BANG_EQUAL, "!=", token_location);
-                } else {
-                    return Token(TokenType::BANG, "!", token_location);
+                    return plus_token;
                 }
-            }
             
-            case '~': {
-                Token tilde_token = Token(TokenType::TILDE, "~", this->current_location);
-                this->advance_char();
-                return tilde_token;
-            }
-            
-            case '%': {
-                Token percent_token = Token(TokenType::PERCENT, "%", this->current_location);
-                this->advance_char();
-                return percent_token;
-            }
-            
-            case '<': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '<') {
+            case '-':
+                {
+                    Token minus_token = Token(TokenType::MINUS, "-", this->current_location);
                     this->advance_char();
-                    return Token(TokenType::LESS_LESS, "<<", token_location);
-                } else if (this->current_char() == '=') {
-                    this->advance_char();
-                    return Token(TokenType::LESS_EQUAL, "<=", token_location);
-                } else {
-                    return Token(TokenType::LESS, "<", token_location);
+                    return minus_token;
                 }
-            }
             
-            case '>': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '>') {
+            case '*':
+                {
+                    Token star_token = Token(TokenType::STAR, "*", this->current_location);
                     this->advance_char();
-                    return Token(TokenType::GREATER_GREATER, ">>", token_location);
-                } else if (this->current_char() == '=') {
-                    this->advance_char();
-                    return Token(TokenType::GREATER_EQUAL, ">=", token_location);
-                } else {
-                    return Token(TokenType::GREATER, ">", token_location);
+                    return star_token;
                 }
-            }
             
-            case '=': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '=') {
+            case '/':
+                {
+                    Token slash_token = Token(TokenType::SLASH, "/", this->current_location);
                     this->advance_char();
-                    return Token(TokenType::EQUAL_EQUAL, "==", token_location);
-                } else {
-                    return Token(TokenType::EQUAL, "=", token_location);
+                    return slash_token;
                 }
-            }
             
-            case '&': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '&') {
+            case '!': 
+                {
+                    Location token_location = this->current_location;
                     this->advance_char();
-                    return Token(TokenType::AND_AND, "&&", token_location);
-                } else {
-                    return Token(TokenType::AND, "&", token_location);
-                }
-            }
-            
-            case '|': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                if (this->current_char() == '|') {
-                    this->advance_char();
-                    return Token(TokenType::PIPE_PIPE, "||", token_location);
-                } else {
-                    return Token(TokenType::PIPE, "|", token_location);
-                }
-            }
-            
-            case '^': {
-                Location token_location = this->current_location;
-                this->advance_char();
-                return Token(TokenType::HAT, "^", token_location);
-            }
-            
-            case ',': {
-                Token comma_token = Token(TokenType::COMMA, ",", this->current_location);
-                this->advance_char();
-                return comma_token;
-            }
-            
-            case ';': {
-                Token semi_colon_token = Token(TokenType::SEMI_COLON, ";", this->current_location);
-                this->advance_char();
-                return semi_colon_token;
-            }
-            
-            case '(': {
-                Token open_parenthesis_token = Token(TokenType::OPEN_PARENTHESIS, "(", this->current_location);
-                this->advance_char();
-                return open_parenthesis_token;
-            }
-            
-            case ')': {
-                Token close_parenthesis_token = Token(TokenType::CLOSE_PARENTHESIS, "(", this->current_location);
-                this->advance_char();
-                return close_parenthesis_token;
-            }
-            
-            case '{': {
-                Token open_curly_brace_token = Token(TokenType::OPEN_CURLY_BRACE, "{", this->current_location);
-                this->advance_char();
-                return open_curly_brace_token;
-            }
-            
-            case '}': {
-                Token close_curly_brace_token = Token(TokenType::CLOSE_CURLY_BRACE, "}", this->current_location);
-                this->advance_char();
-                return close_curly_brace_token;
-            }
-
-            case '\0': {
-                return Token(TokenType::END_OF_FILE, "", this->current_location);
-            }
-            
-            default: {
-                if (std::isdigit(this->current_char())) {
-                    size_t start_pointer = this->source_pointer;
-                    Location start_location = this->current_location;
-                    
-                    while (std::isdigit(this->current_char())) {
+                    if (this->current_char() == '=') {
                         this->advance_char();
-                    }
-                    
-                    size_t end_pointer = this->source_pointer;
-                    std::string int_literal_string = this->source.substr(start_pointer, end_pointer-start_pointer);
-                    return Token(TokenType::INT_LITERAL, int_literal_string, start_location);
-                } else if (is_name_character(this->current_char())) {
-                    size_t start_pointer = this->source_pointer;
-                    Location start_location = this->current_location;
-                    
-                    while (is_name_character(this->current_char())) {
-                        this->advance_char();
-                    }
-                    
-                    size_t end_pointer = this->source_pointer;
-                    std::string name_string = this->source.substr(start_pointer, end_pointer-start_pointer);
-                    if (this->keyword_table.contains(name_string)) {
-                        return Token(this->keyword_table[name_string], name_string, start_location);
+                        return Token(TokenType::BANG_EQUAL, "!=", token_location);
                     } else {
-                        return Token(TokenType::NAME, name_string, start_location);
+                        return Token(TokenType::BANG, "!", token_location);
                     }
-                } else {
-                    std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->current_char() << "'" << std::endl;
-                    std::exit(1);
                 }
-            }
+            
+            case '~':
+                {
+                    Token tilde_token = Token(TokenType::TILDE, "~", this->current_location);
+                    this->advance_char();
+                    return tilde_token;
+                }
+            
+            case '%':
+                {
+                    Token percent_token = Token(TokenType::PERCENT, "%", this->current_location);
+                    this->advance_char();
+                    return percent_token;
+                }
+            
+            case '<': 
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    if (this->current_char() == '<') {
+                        this->advance_char();
+                        return Token(TokenType::LESS_LESS, "<<", token_location);
+                    } else if (this->current_char() == '=') {
+                        this->advance_char();
+                        return Token(TokenType::LESS_EQUAL, "<=", token_location);
+                    } else {
+                        return Token(TokenType::LESS, "<", token_location);
+                    }
+                }
+            
+            case '>':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    if (this->current_char() == '>') {
+                        this->advance_char();
+                        return Token(TokenType::GREATER_GREATER, ">>", token_location);
+                    } else if (this->current_char() == '=') {
+                        this->advance_char();
+                        return Token(TokenType::GREATER_EQUAL, ">=", token_location);
+                    } else {
+                        return Token(TokenType::GREATER, ">", token_location);
+                    }
+                }
+            
+            case '=':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    if (this->current_char() == '=') {
+                        this->advance_char();
+                        return Token(TokenType::EQUAL_EQUAL, "==", token_location);
+                    } else {
+                        return Token(TokenType::EQUAL, "=", token_location);
+                    }
+                }
+            
+            case '&':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    if (this->current_char() == '&') {
+                        this->advance_char();
+                        return Token(TokenType::AND_AND, "&&", token_location);
+                    } else {
+                        return Token(TokenType::AND, "&", token_location);
+                    }
+                }
+            
+            case '|':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    if (this->current_char() == '|') {
+                        this->advance_char();
+                        return Token(TokenType::PIPE_PIPE, "||", token_location);
+                    } else {
+                        return Token(TokenType::PIPE, "|", token_location);
+                    }
+                }
+            
+            case '^':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    return Token(TokenType::HAT, "^", token_location);
+                }
+            
+            case ',':
+                {
+                    Token comma_token = Token(TokenType::COMMA, ",", this->current_location);
+                    this->advance_char();
+                    return comma_token;
+                }
+            
+            case ';':
+                {
+                    Token semi_colon_token = Token(TokenType::SEMI_COLON, ";", this->current_location);
+                    this->advance_char();
+                    return semi_colon_token;
+                }
+            
+            case '(':
+                {
+                    Token open_parenthesis_token = Token(TokenType::OPEN_PARENTHESIS, "(", this->current_location);
+                    this->advance_char();
+                    return open_parenthesis_token;
+                }
+            
+            case ')':
+                {
+                    Token close_parenthesis_token = Token(TokenType::CLOSE_PARENTHESIS, "(", this->current_location);
+                    this->advance_char();
+                    return close_parenthesis_token;
+                }
+            
+            case '{':
+                {
+                    Token open_curly_brace_token = Token(TokenType::OPEN_CURLY_BRACE, "{", this->current_location);
+                    this->advance_char();
+                    return open_curly_brace_token;
+                }
+            
+            case '}':
+                {
+                    Token close_curly_brace_token = Token(TokenType::CLOSE_CURLY_BRACE, "}", this->current_location);
+                    this->advance_char();
+                    return close_curly_brace_token;
+                }
+
+            case '\0':
+                {
+                    return Token(TokenType::END_OF_FILE, "", this->current_location);
+                }
+
+            case '"':
+                {
+                    Location start_location = this->current_location;
+                    size_t start_pointer = this->source_pointer;
+                    char last_char = this->current_char();
+                    this->advance_char();
+                    while ((this->current_char() != '"' || last_char == '\\') && this->current_char() != '\0' && this->current_char() != '\n') {
+                        last_char = this->current_char();
+                        this->advance_char();
+                    }
+                    
+                    if (this->current_char() != '"') {
+                        std::cerr << start_location << " LEX_ERROR: Unterminated string literal." << std::endl;
+                        std::exit(1);
+                    }
+
+                    this->advance_char();
+                    size_t end_pointer = this->source_pointer;
+                    std::string string_literal_string = source.substr(start_pointer, end_pointer - start_pointer);
+                    return Token(TokenType::STRING_LITERAL, string_literal_string, start_location);
+                }
+            
+            default:
+                {
+                    if (std::isdigit(this->current_char())) {
+                        size_t start_pointer = this->source_pointer;
+                        Location start_location = this->current_location;
+                        
+                        while (std::isdigit(this->current_char())) {
+                            this->advance_char();
+                        }
+
+                        if (this->current_char() == '.') {
+                            this->advance_char();
+                            size_t decimal_count = 0;
+                            while (std::isdigit(this->current_char())) {
+                                this->advance_char();
+                                decimal_count += 1;
+                            }
+
+                            if (decimal_count == 0) {
+                                std::cerr << start_location << ": LEX_ERROR: Float literal is expected to have at least one decimal." << std::endl;
+                                std::exit(1);
+                            }
+
+                            size_t end_pointer = this->source_pointer;
+                            std::string float_literal_string = this->source.substr(start_pointer, end_pointer-start_pointer);
+                            return Token(TokenType::FLOAT_LITERAL, float_literal_string, start_location);
+                        } else {
+                            size_t end_pointer = this->source_pointer;
+                            std::string int_literal_string = this->source.substr(start_pointer, end_pointer-start_pointer);
+                            return Token(TokenType::INT_LITERAL, int_literal_string, start_location);
+                        }
+                    } else if (is_name_character(this->current_char())) {
+                        size_t start_pointer = this->source_pointer;
+                        Location start_location = this->current_location;
+                        
+                        while (is_name_character(this->current_char())) {
+                            this->advance_char();
+                        }
+                        
+                        size_t end_pointer = this->source_pointer;
+                        std::string name_string = this->source.substr(start_pointer, end_pointer-start_pointer);
+                        if (this->keyword_table.contains(name_string)) {
+                            return Token(this->keyword_table[name_string], name_string, start_location);
+                        } else {
+                            return Token(TokenType::NAME, name_string, start_location);
+                        }
+                    } else {
+                        std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->current_char() << "'" << std::endl;
+                        std::exit(1);
+                    }
+                }
         }
     }
 

@@ -1,5 +1,5 @@
 {
     while (true) {
-        print(23);
+        print("\"Hello, World\"\n");
     }
 }
