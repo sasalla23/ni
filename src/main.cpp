@@ -13,6 +13,7 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
 }
 
 #include "tokenizer.cpp"
+#include "type_annotation.cpp"
 #include "expression.cpp"
 #include "statement.cpp"
 #include "parser.cpp"

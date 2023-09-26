@@ -85,6 +85,10 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(WHILE_KEYWORD) \
     TOKEN_TYPE_ENTRY(BREAK_KEYWORD) \
     TOKEN_TYPE_ENTRY(CONTINUE_KEYWORD) \
+    TOKEN_TYPE_ENTRY(INT_KEYWORD) \
+    TOKEN_TYPE_ENTRY(FLOAT_KEYWORD) \
+    TOKEN_TYPE_ENTRY(BOOL_KEYWORD) \
+    TOKEN_TYPE_ENTRY(STRING_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -173,6 +177,10 @@ public:
             { "while", TokenType::WHILE_KEYWORD },
             { "break", TokenType::BREAK_KEYWORD },
             { "continue", TokenType::CONTINUE_KEYWORD },
+            { "int", TokenType::INT_KEYWORD },
+            { "float", TokenType::FLOAT_KEYWORD },
+            { "bool", TokenType::BOOL_KEYWORD },
+            { "string", TokenType::STRING_KEYWORD },
         };
     }
 

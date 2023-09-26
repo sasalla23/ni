@@ -67,6 +67,7 @@ private:
                 return 0; // Not an operator
         }
     }
+
 public:
     Parser(std::vector<Token> tokens)
         : tokens(std::move(tokens)), token_pointer(0)
@@ -75,6 +76,18 @@ public:
 
     std::unique_ptr<Expression> parse_expression() {
         return this->parse_binary_expression();
+    }
+
+    std::unique_ptr<TypeAnnotation> parse_type_annotation() {
+        if (this->get_current_token().get_type() == TokenType::OPEN_SQUARE_BRACKET) {
+            Token open_square_bracket_token = this->consume_token();
+            auto inner_type = this->parse_type_annotation();
+            (void) this->expect_token(TokenType::CLOSE_SQUARE_BRACKET);
+            return std::make_unique<ListTypeAnnotation>(open_square_bracket_token.get_location(), std::move(inner_type));
+        } else {
+            Token primitive_type_token = this->consume_token();
+            return std::make_unique<PrimitiveTypeAnnotation>(primitive_type_token);
+        }
     }
 
     std::unique_ptr<Statement> parse_statement() {
