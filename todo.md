@@ -5,5 +5,5 @@
 - [x] Index Expressions
 - [x] Type annotations
 - [x] Char literals
-- [ ] Struct member access 
+- [x] Struct member access 
 - [ ] Global statements like function definitions 

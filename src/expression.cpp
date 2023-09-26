@@ -89,7 +89,7 @@ public:
         output_stream << "CallExpression" << std::endl;
         this->called->append_to_output_stream(output_stream, layer+1);
         for (const auto& argument : this->arguments) {
-            argument->append_to_output_stream(output_stream, layer+2);
+            argument->append_to_output_stream(output_stream, layer+1);
         }
     }
 
@@ -148,5 +148,24 @@ public:
         this->operand->append_to_output_stream(output_stream, layer + 1);
         this->index->append_to_output_stream(output_stream, layer + 1);
     }
+
+    ~IndexingExpression() {}
 };
 
+class MemberAccessExpression : public Expression {
+private:
+    std::unique_ptr<Expression> accessed;
+    Token member_name;
+public:
+    MemberAccessExpression(std::unique_ptr<Expression> accessed, const Token& member_name)
+        : Expression(accessed->get_location()), accessed(std::move(accessed)), member_name(member_name)
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "MemberAccessExpression(" << member_name.get_text() << ")" << std::endl;
+        this->accessed->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    ~MemberAccessExpression() {}
+};

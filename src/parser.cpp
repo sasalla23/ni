@@ -290,6 +290,15 @@ private:
                         left = std::make_unique<IndexingExpression>(std::move(left), std::move(index));
                         break;
                     }
+
+                case TokenType::DOT:
+                    {
+                        (void) this->consume_token();
+                        Token member_name = this->expect_token(TokenType::NAME);
+                        left = std::make_unique<MemberAccessExpression>(std::move(left), member_name);
+                        break;
+                    }
+
                 default:
                     return left;
             }
