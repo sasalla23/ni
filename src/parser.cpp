@@ -78,6 +78,54 @@ public:
         return this->parse_binary_expression();
     }
 
+    std::vector<std::unique_ptr<GlobalDefinition>> parse_file() {
+        std::vector<std::unique_ptr<GlobalDefinition>> global_definitions;
+        while (this->get_current_token().get_type() != TokenType::END_OF_FILE) {
+            global_definitions.push_back(this->parse_global_definition());
+        }
+        return std::move(global_definitions);
+    }
+
+    std::unique_ptr<GlobalDefinition> parse_global_definition() {
+        Token next_token = this->get_current_token();
+        switch(next_token.get_type()) {
+            case TokenType::FUN_KEYWORD:
+                {
+                    Token fun_token = this->consume_token();
+                    Token name = this->expect_token(TokenType::NAME);
+                    (void) this->expect_token(TokenType::OPEN_PARENTHESIS);
+                    std::vector<std::unique_ptr<ArgumentDefinition>> arguments;
+                    if (this->get_current_token().get_type() != TokenType::CLOSE_PARENTHESIS) {
+                        for (;;) {
+                            Token argument_name = this->expect_token(TokenType::NAME);
+                            (void) this->expect_token(TokenType::COLON);
+                            auto argument_type = this->parse_type_annotation();
+                            auto argument_definition = std::make_unique<ArgumentDefinition>(argument_name, std::move(argument_type));
+                            arguments.push_back(std::move(argument_definition));
+                            if (this->get_current_token().get_type() == TokenType::COMMA) {
+                                (void) this->consume_token();
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    (void) this->expect_token(TokenType::CLOSE_PARENTHESIS);
+                    (void) this->expect_token(TokenType::COLON);
+                    auto return_type = this->parse_type_annotation();
+                    Token statement_start_token = this->get_current_token();
+                    if (statement_start_token.get_type() != TokenType::OPEN_CURLY_BRACE) {
+                        std::cerr << statement_start_token.get_location() << ": PARSE_ERROR: Expected block statement as function body." << std::endl;
+                        std::exit(1);
+                    }
+                    auto body = this->parse_statement();
+                    return std::make_unique<FunctionDefinition>(fun_token.get_location(), name, std::move(arguments), std::move(return_type), std::move(body));
+                }
+            default:
+                std::cerr << next_token.get_location() << ": PARSE_ERROR: Unexpected token of type <" << next_token.get_type() << "> at the beginning of global definition." << std::endl;
+                std::exit(1);
+        }
+    }
+
     std::unique_ptr<TypeAnnotation> parse_type_annotation() {
         if (this->get_current_token().get_type() == TokenType::OPEN_SQUARE_BRACKET) {
             Token open_square_bracket_token = this->consume_token();
@@ -122,6 +170,14 @@ public:
                     }
                     (void) this->expect_token(TokenType::CLOSE_CURLY_BRACE);
                     return std::make_unique<BlockStatement>(open_curly_brace_token.get_location(), std::move(sub_statements));
+                }
+
+            case TokenType::RETURN_KEYWORD:
+                {
+                    Token return_keyword = this->consume_token();
+                    auto return_value = this->parse_expression();
+                    (void)this->expect_token(TokenType::SEMI_COLON);
+                    return std::make_unique<ReturnStatement>(return_keyword.get_location(), std::move(return_value));
                 }
 
             case TokenType::IF_KEYWORD:

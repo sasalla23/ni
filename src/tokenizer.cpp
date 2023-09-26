@@ -93,6 +93,9 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(BOOL_KEYWORD) \
     TOKEN_TYPE_ENTRY(STRING_KEYWORD) \
     TOKEN_TYPE_ENTRY(CHAR_KEYWORD) \
+    TOKEN_TYPE_ENTRY(FUN_KEYWORD) \
+    TOKEN_TYPE_ENTRY(RETURN_KEYWORD) \
+    TOKEN_TYPE_ENTRY(VOID_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -186,6 +189,9 @@ public:
             { "bool", TokenType::BOOL_KEYWORD },
             { "string", TokenType::STRING_KEYWORD },
             { "char", TokenType::CHAR_KEYWORD },
+            { "fun", TokenType::FUN_KEYWORD },
+            { "return", TokenType::RETURN_KEYWORD },
+            { "void", TokenType::VOID_KEYWORD },
         };
     }
 

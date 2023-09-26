@@ -180,3 +180,19 @@ public:
     ~ContinueStatement() {}
 };
 
+class ReturnStatement : public Statement {
+private:
+    std::unique_ptr<Expression> return_value;
+public:
+    ReturnStatement(const Location& start_location, std::unique_ptr<Expression> return_value)
+        : Statement(start_location), return_value(std::move(return_value))
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "ReturnStatement" << std::endl;
+        this->return_value->append_to_output_stream(output_stream, layer + 1);
+    }
+    
+    ~ReturnStatement() {}
+};

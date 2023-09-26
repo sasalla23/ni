@@ -16,14 +16,17 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
 #include "type_annotation.cpp"
 #include "expression.cpp"
 #include "statement.cpp"
+#include "global_definition.cpp"
 #include "parser.cpp"
 
 int main(void) {
     Tokenizer tokenizer("test.ni");
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
-    auto statement = parser.parse_statement();
-    std::cout << *statement;
+    auto global_definitions = parser.parse_file();
+    for (auto& global_definition : global_definitions) {
+        std::cout << *global_definition;
+    }
 
     return 0;
 }
