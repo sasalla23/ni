@@ -218,6 +218,7 @@ private:
             case TokenType::INT_LITERAL:
             case TokenType::FLOAT_LITERAL:
             case TokenType::STRING_LITERAL:
+            case TokenType::CHAR_LITERAL:
                 left = std::make_unique<LiteralExpression>(this->consume_token());
                 break;
             case TokenType::OPEN_PARENTHESIS:

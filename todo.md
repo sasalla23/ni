@@ -3,7 +3,7 @@
 - [x] Break/Continue
 - [x] List literals 
 - [x] Index Expressions
-- [ ] Type annotations
-- [ ] Char literals
+- [x] Type annotations
+- [x] Char literals
 - [ ] Struct member access 
 - [ ] Global statements like function definitions 

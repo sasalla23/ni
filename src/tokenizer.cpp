@@ -43,6 +43,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(INT_LITERAL) \
     TOKEN_TYPE_ENTRY(FLOAT_LITERAL) \
     TOKEN_TYPE_ENTRY(STRING_LITERAL) \
+    TOKEN_TYPE_ENTRY(CHAR_LITERAL) \
     TOKEN_TYPE_ENTRY(NAME) \
     \
     TOKEN_TYPE_ENTRY(PLUS) \
@@ -90,6 +91,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(FLOAT_KEYWORD) \
     TOKEN_TYPE_ENTRY(BOOL_KEYWORD) \
     TOKEN_TYPE_ENTRY(STRING_KEYWORD) \
+    TOKEN_TYPE_ENTRY(CHAR_KEYWORD) \
     \
     TOKEN_TYPE_ENTRY(END_OF_FILE) \
 
@@ -182,6 +184,7 @@ public:
             { "float", TokenType::FLOAT_KEYWORD },
             { "bool", TokenType::BOOL_KEYWORD },
             { "string", TokenType::STRING_KEYWORD },
+            { "char", TokenType::CHAR_KEYWORD },
         };
     }
 
@@ -428,6 +431,28 @@ private:
                     size_t end_pointer = this->source_pointer;
                     std::string string_literal_string = source.substr(start_pointer, end_pointer - start_pointer);
                     return Token(TokenType::STRING_LITERAL, string_literal_string, start_location);
+                }
+            
+            case '\'':
+                {
+                    Location start_location = this->current_location;
+                    size_t start_pointer = this->source_pointer;
+                    char last_char = this->current_char();
+                    this->advance_char();
+                    while ((this->current_char() != '\'' || last_char == '\\') && this->current_char() != '\0' && this->current_char() != '\n') {
+                        last_char = this->current_char();
+                        this->advance_char();
+                    }
+                    
+                    if (this->current_char() != '\'') {
+                        std::cerr << start_location << " LEX_ERROR: Unterminated char literal." << std::endl;
+                        std::exit(1);
+                    }
+
+                    this->advance_char();
+                    size_t end_pointer = this->source_pointer;
+                    std::string char_literal_string = source.substr(start_pointer, end_pointer - start_pointer);
+                    return Token(TokenType::CHAR_LITERAL, char_literal_string, start_location);
                 }
             
             default:
