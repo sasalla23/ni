@@ -18,7 +18,7 @@ class PrimitiveTypeAnnotation : public TypeAnnotation {
 private:
     Token name_token;
 public:
-    PrimitiveTypeAnnotation(Token name_token)
+    PrimitiveTypeAnnotation(const Token& name_token)
         : TypeAnnotation(name_token.get_location()), name_token(name_token)
     {}
 

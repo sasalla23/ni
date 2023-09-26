@@ -76,6 +76,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     \
     TOKEN_TYPE_ENTRY(COMMA) \
     TOKEN_TYPE_ENTRY(SEMI_COLON) \
+    TOKEN_TYPE_ENTRY(COLON) \
     \
     TOKEN_TYPE_ENTRY(TRUE_KEYWORD) \
     TOKEN_TYPE_ENTRY(FALSE_KEYWORD) \
@@ -351,6 +352,13 @@ private:
                     Token semi_colon_token = Token(TokenType::SEMI_COLON, ";", this->current_location);
                     this->advance_char();
                     return semi_colon_token;
+                }
+            
+            case ':':
+                {
+                    Token colon_token = Token(TokenType::COLON, ":", this->current_location);
+                    this->advance_char();
+                    return colon_token;
                 }
             
             case '(':

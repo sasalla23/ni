@@ -96,10 +96,20 @@ public:
                 {
                     Token var_token = this->consume_token();
                     Token variable_name = this->expect_token(TokenType::NAME);
-                    (void) this->expect_token(TokenType::EQUAL);
-                    auto defining_expression = this->parse_expression();
-                    (void) this->expect_token(TokenType::SEMI_COLON);
-                    return std::make_unique<DefinitionStatement>(var_token.get_location(), variable_name, std::move(defining_expression));
+
+                    if (this->get_current_token().get_type() == TokenType::COLON) {
+                        (void) this->consume_token();
+                        auto type_annotation = this->parse_type_annotation();
+                        (void) this->expect_token(TokenType::EQUAL);
+                        auto defining_expression = this->parse_expression();
+                        (void) this->expect_token(TokenType::SEMI_COLON);
+                        return std::make_unique<TypedDefinitionStatement>(var_token.get_location(), variable_name, std::move(type_annotation), std::move(defining_expression));
+                    } else {
+                        (void) this->expect_token(TokenType::EQUAL);
+                        auto defining_expression = this->parse_expression();
+                        (void) this->expect_token(TokenType::SEMI_COLON);
+                        return std::make_unique<DefinitionStatement>(var_token.get_location(), variable_name, std::move(defining_expression));
+                    }
                 }
 
             case TokenType::OPEN_CURLY_BRACE:

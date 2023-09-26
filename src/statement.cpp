@@ -42,7 +42,7 @@ private:
     Token variable_name;
     std::unique_ptr<Expression> defining_expression;
 public:
-    DefinitionStatement(const Location& start_location, Token variable_name, std::unique_ptr<Expression> defining_expression)
+    DefinitionStatement(const Location& start_location, const Token& variable_name, std::unique_ptr<Expression> defining_expression)
         : Statement(start_location), variable_name(variable_name), defining_expression(std::move(defining_expression))
     {}
 
@@ -53,6 +53,28 @@ public:
     }
 
     ~DefinitionStatement() {}
+};
+
+class TypedDefinitionStatement : public Statement {
+private:
+    Token variable_name;
+    std::unique_ptr<TypeAnnotation> type_annotation;
+    std::unique_ptr<Expression> defining_expression;
+public:
+    TypedDefinitionStatement(const Location& start_location, const Token& variable_name, std::unique_ptr<TypeAnnotation> type_annotation, std::unique_ptr<Expression> defining_expression)
+        : Statement(start_location),
+          variable_name(variable_name),
+          type_annotation(std::move(type_annotation)),
+          defining_expression(std::move(defining_expression))
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "TypedDefinitionStatement(" << this->variable_name.get_text() << " : " << this->type_annotation->to_string() << ")" << std::endl;
+        this->defining_expression->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    ~TypedDefinitionStatement() {}
 };
 
 class BlockStatement : public Statement {
