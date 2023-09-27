@@ -34,6 +34,7 @@ public:
             case TokenType::FLOAT_KEYWORD: return Type::FLOAT;
             case TokenType::STRING_KEYWORD: return Type::STRING;
             case TokenType::CHAR_KEYWORD: return Type::CHAR;
+            case TokenType::BOOL_KEYWORD: return Type::BOOL;
             default: assert(false && "unreachable"); 
         }
     }

@@ -16,6 +16,14 @@ public:
             return_type(return_type)
     {}
 
+    bool fits_criteria(TokenType operator_token_type, std::shared_ptr<Type> left_type, std::shared_ptr<Type> right_type) const {
+        return this->operator_token_type == operator_token_type && left_type->fits(this->left_type) && right_type->fits(this->right_type);
+    }
+
+    std::shared_ptr<Type> get_return_type() const {
+        return this->return_type;
+    }
+
     static BinaryOperator OPERATORS[];
     ~BinaryOperator() {}
 };
@@ -44,14 +52,14 @@ public:
     BinaryOperator(TokenType::PIPE_PIPE, T, T, Type::BOOL)
 
 BinaryOperator BinaryOperator::OPERATORS[] = {
-    ARITHMETIC_OPERATORS(Types::INT),
-    BIN_OPERATORS(Types::INT),
-    ORDERING_OPERATORS(Types::INT),
+    ARITHMETIC_OPERATORS(Type::INT),
+    BIN_OPERATORS(Type::INT),
+    ORDERING_OPERATORS(Type::INT),
 
     BinaryOperator(TokenType::PERCENT, Type::INT, Type::INT, Type::INT),
 
-    ARITHMETIC_OPERATORS(Types::FLOAT),
-    ORDERING_OPERATORS(Types::FLOAT),
+    ARITHMETIC_OPERATORS(Type::FLOAT),
+    ORDERING_OPERATORS(Type::FLOAT),
 
     BinaryOperator(TokenType::EQUAL_EQUAL, Type::GENERIC, Type::GENERIC, Type::BOOL),
     BinaryOperator(TokenType::BANG_EQUAL, Type::GENERIC, Type::GENERIC, Type::BOOL),
@@ -59,8 +67,6 @@ BinaryOperator BinaryOperator::OPERATORS[] = {
     LOGICAL_OPERATORS(Type::BOOL),
 };
 
-constexpr size_t BINARY_OPERATOR_COUNT (sizeof(OPERATORS) / sizeof(BinaryOperator))
+constexpr size_t BINARY_OPERATOR_COUNT = (sizeof(BinaryOperator::OPERATORS) / sizeof(BinaryOperator));
 
-class TypeChecker {
-
-};
+class TypeChecker {};

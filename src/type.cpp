@@ -1,17 +1,20 @@
 
 #define PRIMITIVE_LIST \
-    PRIMITIVE_ENTRY(INT) \
+   PRIMITIVE_ENTRY(INT) \
     PRIMITIVE_ENTRY(CHAR) \
     PRIMITIVE_ENTRY(VOID) \
     PRIMITIVE_ENTRY(STRING) \
     PRIMITIVE_ENTRY(FLOAT) \
-    PRIMITIVE_ENTRY(GENERIC) \
+    PRIMITIVE_ENTRY(BOOL) \
 
 class Type {
+    friend class PrimitiveType;
+    friend class ListType;
 protected:
     enum class TypeType {
         LIST,
         PRIMITIVE,
+        GENERIC,
         NO_TYPE
     };
 
@@ -22,7 +25,9 @@ public:
 #define PRIMITIVE_ENTRY(x) static std::shared_ptr<Type> x;
     PRIMITIVE_LIST
 #undef PRIMITIVE_ENTRY    
+
     static std::shared_ptr<Type> NO;
+    static std::shared_ptr<Type> GENERIC;
 
     virtual std::string to_string() const = 0;
 
@@ -39,7 +44,7 @@ public:
         assert(false && "unreachable");
     }
 
-    virtual bool fits(std::shared_ptr<Type> other) const {
+    virtual bool fits(std::shared_ptr<Type>) const {
         return false;
     }
 
@@ -59,8 +64,9 @@ public:
     }
     
     virtual bool fits(std::shared_ptr<Type> other) const {
+        if (other->type_type == Type::TypeType::GENERIC) return true;
         if (other->type_type == Type::TypeType::LIST) {
-            return this->inner_type->fits(dynamic_cast<std::shared_ptr<ListType>>(other)->inner_type);
+            return this->inner_type->fits(dynamic_cast<ListType*>(other.get())->inner_type);
         } else {
             return false;
         }
@@ -103,10 +109,35 @@ public:
         return output.str();
     }
     
+    virtual bool fits(std::shared_ptr<Type> other) const {
+        if (other->type_type == Type::TypeType::GENERIC) return true;
+        if (other->type_type == Type::TypeType::PRIMITIVE) {
+            return this->primitive_type == dynamic_cast<PrimitiveType*>(other.get())->primitive_type;
+        } else {
+            return false;
+        }
+    }
+    
     ~PrimitiveType() {}
+};
+
+class GenericType : public Type {
+public:
+    GenericType() : Type(Type::TypeType::GENERIC) {}
+
+    virtual std::string to_string() const override {
+        return "GENERIC";
+    }
+
+    virtual bool fits(std::shared_ptr<Type>) const {
+        return true;
+    }
+
+    ~GenericType() {}
 };
 
 #define PRIMITIVE_ENTRY(x) std::shared_ptr<Type> Type:: x = std::make_shared<PrimitiveType>(Primitive:: x);
 PRIMITIVE_LIST
 #undef PRIMITIVE_ENTRY
 std::shared_ptr<Type> Type::NO = std::make_shared<NoType>();
+std::shared_ptr<Type> Type::GENERIC = std::make_shared<GenericType>();

@@ -2,7 +2,7 @@
 
 set -xe
 
-CXX_FLAGS="-Wall -Wextra -ggdb -fsanitize=address -pedantic -std=c++2a"
+CXX_FLAGS="-Wall -Wno-pessimizing-move -Wextra -ggdb -fsanitize=address -pedantic -std=c++2a"
 BIN="main"
 CXX="g++"
 CXX_FILES="src/main.cpp"

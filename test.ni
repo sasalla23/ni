@@ -1,3 +1,1 @@
-fun main(): void {
-    print("Hello, World");
-}
+23 % 2 == 0 

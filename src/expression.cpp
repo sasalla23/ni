@@ -4,6 +4,11 @@ private:
     Location location;
     std::shared_ptr<Type> type;
 
+protected:
+    void set_type(std::shared_ptr<Type> type) {
+        this->type = type;
+    }
+
 public:
     Expression(const Location& location)
         : location(location),
@@ -53,7 +58,19 @@ public:
         this->left->type_check(type_checker);
         this->right->type_check(type_checker);
         
-        assert(false && "TODO");
+        auto left_type = this->left->get_type();
+        auto right_type = this->right->get_type();
+        
+        for (size_t i = 0; i < BINARY_OPERATOR_COUNT; i++) {
+            const BinaryOperator& binary_operator = BinaryOperator::OPERATORS[i];
+            if (binary_operator.fits_criteria(this->operator_token.get_type(), left_type, right_type)) {
+                this->set_type(binary_operator.get_return_type());
+                return;
+            }
+        }
+        
+        std::cerr << this->get_location() << ": Operator '" << this->operator_token.get_text() << "' is not defined for types <" << left_type->to_string() << "> and <" << right_type->to_string() << ">." << std::endl;
+        std::exit(1);
     }
 
     ~BinaryExpression() {}
@@ -72,8 +89,32 @@ public:
         output_stream << "LiteralExpression(" << this->literal_token.get_text() << ")" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker&) override {
+        switch (literal_token.get_type()) {
+            case TokenType::INT_LITERAL:
+                this->set_type(Type::INT);
+                break;
+            
+            case TokenType::STRING_LITERAL:
+                this->set_type(Type::STRING);
+                break;
+
+            case TokenType::CHAR_LITERAL:
+                this->set_type(Type::CHAR);
+                break;
+            
+            case TokenType::FLOAT_LITERAL:
+                this->set_type(Type::FLOAT);
+                break;
+            
+            case TokenType::FALSE_KEYWORD:
+            case TokenType::TRUE_KEYWORD:
+                this->set_type(Type::BOOL);
+                break;
+
+            default:
+                assert(false && "unreachable");
+        }
     }
 
     ~LiteralExpression() {}
@@ -92,7 +133,7 @@ public:
         output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
@@ -117,7 +158,7 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
@@ -139,7 +180,7 @@ public:
         this->operand->append_to_output_stream(output_stream, layer+1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
@@ -162,7 +203,7 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
@@ -185,7 +226,7 @@ public:
         this->index->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
@@ -207,7 +248,7 @@ public:
         this->accessed->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check(TypeChecker&) override {
         assert(false && "TODO");
     }
 
