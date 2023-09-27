@@ -6,6 +6,7 @@ public:
     {}
 
     virtual std::string to_string() const = 0;
+    virtual std::shared_ptr<Type> to_type() const = 0;
 
     const Location& get_location() const {
         return this->location;
@@ -26,6 +27,17 @@ public:
         return this->name_token.get_text();
     }
 
+    virtual std::shared_ptr<Type> to_type() const override {
+        switch (this->name_token.get_type()) {
+            case TokenType::INT_KEYWORD: return Type::INT;
+            case TokenType::VOID_KEYWORD: return Type::VOID;
+            case TokenType::FLOAT_KEYWORD: return Type::FLOAT;
+            case TokenType::STRING_KEYWORD: return Type::STRING;
+            case TokenType::CHAR_KEYWORD: return Type::CHAR;
+            default: assert(false && "unreachable"); 
+        }
+    }
+
     ~PrimitiveTypeAnnotation() {}
 };
 
@@ -39,6 +51,10 @@ public:
 
     virtual std::string to_string() const override {
         return "[" + this->inner_type->to_string() + "]";
+    }
+
+    virtual std::shared_ptr<Type> to_type() const override {
+        return std::make_shared<ListType>(this->inner_type->to_type());
     }
 
     ~ListTypeAnnotation() {}

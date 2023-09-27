@@ -2,12 +2,21 @@
 class Expression {
 private:
     Location location;
+    std::shared_ptr<Type> type;
 
 public:
-    Expression(const Location& location) : location(location)
+    Expression(const Location& location)
+        : location(location),
+          type(Type::NO)
     {}
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
+
+    virtual void type_check(TypeChecker& type_checker) = 0;
+
+    virtual std::shared_ptr<Type> get_type() const {
+        return this->type;
+    }
 
     const Location& get_location() const {
         return this->location;
@@ -40,6 +49,13 @@ public:
         this->right->append_to_output_stream(output_stream, layer+1);
     }
 
+    virtual void type_check(TypeChecker& type_checker) {
+        this->left->type_check(type_checker);
+        this->right->type_check(type_checker);
+        
+        assert(false && "TODO");
+    }
+
     ~BinaryExpression() {}
 };
 
@@ -54,6 +70,10 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
         indent_layer(output_stream, layer);
         output_stream << "LiteralExpression(" << this->literal_token.get_text() << ")" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
     }
 
     ~LiteralExpression() {}
@@ -70,6 +90,10 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
         indent_layer(output_stream, layer);
         output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
     }
 
     ~VariableExpression() {}
@@ -92,6 +116,10 @@ public:
             argument->append_to_output_stream(output_stream, layer+1);
         }
     }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
+    }
 
     ~CallExpression() {}
 };
@@ -109,6 +137,10 @@ public:
         indent_layer(output_stream, layer);
         output_stream << "UnaryExpression(" << this->operator_token.get_text() << ")" << std::endl;
         this->operand->append_to_output_stream(output_stream, layer+1);
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
     }
 
     ~UnaryExpression() {}
@@ -129,6 +161,10 @@ public:
             this->element_initializers[i]->append_to_output_stream(output_stream, layer + 1);
         }
     }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
+    }
 
     ~ListLiteralExpression() {}
 };
@@ -148,6 +184,10 @@ public:
         this->operand->append_to_output_stream(output_stream, layer + 1);
         this->index->append_to_output_stream(output_stream, layer + 1);
     }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
+    }
 
     ~IndexingExpression() {}
 };
@@ -165,6 +205,10 @@ public:
         indent_layer(output_stream, layer);
         output_stream << "MemberAccessExpression(" << member_name.get_text() << ")" << std::endl;
         this->accessed->append_to_output_stream(output_stream, layer + 1);
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        assert(false && "TODO");
     }
 
     ~MemberAccessExpression() {}
