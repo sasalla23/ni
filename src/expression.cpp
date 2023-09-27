@@ -4,11 +4,6 @@ private:
     Location location;
     std::shared_ptr<Type> type;
 
-protected:
-    void set_type(std::shared_ptr<Type> type) {
-        this->type = type;
-    }
-
 public:
     Expression(const Location& location)
         : location(location),
@@ -19,8 +14,12 @@ public:
 
     virtual void type_check(TypeChecker& type_checker) = 0;
 
-    virtual std::shared_ptr<Type> get_type() const {
+    std::shared_ptr<Type> get_type() const {
         return this->type;
+    }
+    
+    void set_type(std::shared_ptr<Type> type) {
+        this->type = type;
     }
 
     const Location& get_location() const {
@@ -203,8 +202,43 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        if (this->element_initializers.size() == 0) {
+            this->set_type(std::make_shared<ListType>(Type::GENERIC));
+        } else {
+            for (auto& element : this->element_initializers) {
+                element->type_check(type_checker);
+            }
+
+            auto element_type = this->element_initializers[0]->get_type();
+            for (auto& element : this->element_initializers) {
+                if (!element->get_type()->is_generic()) {
+                    element_type = element->get_type();
+                    break;
+                }
+            }
+
+            for (size_t i = 0; i < this->element_initializers.size(); i++) {
+                auto& element = this->element_initializers[i];
+                element->type_check(type_checker);
+                if (!element->get_type()->fits(element_type)) {
+                    std::cerr
+                        << this->get_location()
+                        << ": TYPE_ERROR: Inconsistend type inside of list literal: The first element has type <"
+                        << element_type->to_string()
+                        << "> while the element at index "
+                        << i
+                        << " has type <"
+                        << element->get_type()->to_string()
+                        << ">." << std::endl;
+                    std::exit(1);
+                }
+                if (element->get_type()->is_generic()) {
+                    element->set_type(element_type);
+                }
+            }
+            this->set_type(std::make_shared<ListType>(element_type));
+        }
     }
 
     ~ListLiteralExpression() {}
@@ -226,8 +260,29 @@ public:
         this->index->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->operand->type_check(type_checker);
+
+        // TODO: Maybe create global constant for generic lists
+        auto operand_type = this->operand->get_type();
+        auto inner_type = Type::NO;
+        if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
+            auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
+            inner_type = operand_type_as_list_type->get_inner_type();
+        } else if (operand_type->fits(Type::STRING)) {
+            inner_type = Type::CHAR;
+        } else {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
+            std::exit(1);
+        }
+
+        this->index->type_check(type_checker);
+        if (!this->index->get_type()->fits(Type::INT)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
+            std::exit(1);
+        }
+
+        this->set_type(inner_type);
     }
 
     ~IndexingExpression() {}

@@ -303,7 +303,8 @@ private:
                         }
                     }
                     (void) this->expect_token(TokenType::CLOSE_SQUARE_BRACKET);
-                    return std::make_unique<ListLiteralExpression>(open_square_bracket_token.get_location(), std::move(element_initializers));
+                    left = std::make_unique<ListLiteralExpression>(open_square_bracket_token.get_location(), std::move(element_initializers));
+                    break;
                 }
 
             case TokenType::NAME:

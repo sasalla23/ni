@@ -30,8 +30,8 @@ public:
     static std::shared_ptr<Type> GENERIC;
 
     virtual std::string to_string() const = 0;
-
     virtual bool fits(std::shared_ptr<Type> other) const = 0;
+    virtual bool is_generic() const = 0;
 
     virtual ~Type() {}
 };
@@ -44,7 +44,11 @@ public:
         assert(false && "unreachable");
     }
 
-    virtual bool fits(std::shared_ptr<Type>) const {
+    virtual bool fits(std::shared_ptr<Type>) const override {
+        return false;
+    }
+
+    virtual bool is_generic() const override {
         return false;
     }
 
@@ -62,14 +66,22 @@ public:
     virtual std::string to_string() const override {
         return "[" + inner_type->to_string() + "]";
     }
+
+    std::shared_ptr<Type> get_inner_type() const {
+        return this->inner_type;
+    }
     
-    virtual bool fits(std::shared_ptr<Type> other) const {
+    virtual bool fits(std::shared_ptr<Type> other) const override {
         if (other->type_type == Type::TypeType::GENERIC) return true;
         if (other->type_type == Type::TypeType::LIST) {
             return this->inner_type->fits(dynamic_cast<ListType*>(other.get())->inner_type);
         } else {
             return false;
         }
+    }
+
+    virtual bool is_generic() const override {
+        return this->inner_type->is_generic();
     }
 
     ~ListType() {}
@@ -109,13 +121,17 @@ public:
         return output.str();
     }
     
-    virtual bool fits(std::shared_ptr<Type> other) const {
+    virtual bool fits(std::shared_ptr<Type> other) const override {
         if (other->type_type == Type::TypeType::GENERIC) return true;
         if (other->type_type == Type::TypeType::PRIMITIVE) {
             return this->primitive_type == dynamic_cast<PrimitiveType*>(other.get())->primitive_type;
         } else {
             return false;
         }
+    }
+
+    virtual bool is_generic() const override {
+        return false;
     }
     
     ~PrimitiveType() {}
@@ -129,7 +145,11 @@ public:
         return "GENERIC";
     }
 
-    virtual bool fits(std::shared_ptr<Type>) const {
+    virtual bool fits(std::shared_ptr<Type>) const override {
+        return true;
+    }
+
+    virtual bool is_generic() const override {
         return true;
     }
 
