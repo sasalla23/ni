@@ -232,7 +232,7 @@ public:
 
 private:
     std::unique_ptr<Expression> parse_binary_expression(int parent_precedence=-1) {
-        auto left = this->parse_primary_expression();
+        auto left = this->parse_unary_expression();
         Token next_operator = this->get_current_token();
         int operator_precedence = this->get_binary_precedence(next_operator.get_type());
         while (

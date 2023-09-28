@@ -6,4 +6,10 @@
 - [x] Type annotations
 - [x] Char literals
 - [x] Struct member access 
-- [ ] Global statements like function definitions 
+- [x] Global statements like function definitions 
+
+## TypeChecker
+- [ ] type check expressions
+- [ ] fix type inference
+- [ ] type check statements 
+- [ ] type check global definitions 

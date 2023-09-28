@@ -179,8 +179,24 @@ public:
         this->operand->append_to_output_stream(output_stream, layer+1);
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->operand->type_check(type_checker);
+        auto operand_type = this->operand->get_type();
+        
+        for (size_t i = 0; i < UNARY_OPERATOR_COUNT; i++) {
+            const auto& unary_operator = UnaryOperator::OPERATORS[i];
+            if (unary_operator.fits_criteria(this->operator_token.get_type(), operand_type)) {
+                this->set_type(unary_operator.get_return_type());
+                return;
+            }
+        }
+
+        std::cerr << this->get_location() << ": TYPE_ERROR: Unary operator '"
+            << this->operator_token.get_text()
+            << "' is not defined for type <"
+            << operand_type->to_string()
+            << ">." << std::endl;
+        std::exit(1);
     }
 
     ~UnaryExpression() {}
@@ -233,6 +249,7 @@ public:
                         << ">." << std::endl;
                     std::exit(1);
                 }
+                // TODO: Recursive type inference
                 if (element->get_type()->is_generic()) {
                     element->set_type(element_type);
                 }

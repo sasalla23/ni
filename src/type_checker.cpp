@@ -69,4 +69,36 @@ BinaryOperator BinaryOperator::OPERATORS[] = {
 
 constexpr size_t BINARY_OPERATOR_COUNT = (sizeof(BinaryOperator::OPERATORS) / sizeof(BinaryOperator));
 
+class UnaryOperator {
+private:
+    TokenType operator_token_type;
+    std::shared_ptr<Type> operand_type;
+    std::shared_ptr<Type> return_type;
+public:
+    UnaryOperator(TokenType operator_token_type, std::shared_ptr<Type> operand_type, std::shared_ptr<Type> return_type)
+        : operator_token_type(operator_token_type), operand_type(operand_type), return_type(return_type)
+    {}
+
+    bool fits_criteria(TokenType operator_token_type, std::shared_ptr<Type> operand_type) const {
+        return operator_token_type == this->operator_token_type && operand_type->fits(this->operand_type);
+    }
+
+    std::shared_ptr<Type> get_return_type() const {
+        return this->return_type;
+    }
+
+    static UnaryOperator OPERATORS[];
+    ~UnaryOperator() {}
+};
+
+UnaryOperator UnaryOperator::OPERATORS[] = {
+    UnaryOperator(TokenType::TILDE, Type::INT, Type::INT),
+    UnaryOperator(TokenType::PLUS, Type::INT, Type::INT),
+    UnaryOperator(TokenType::MINUS, Type::INT, Type::INT),
+    
+    UnaryOperator(TokenType::BANG, Type::BOOL, Type::BOOL),
+};
+
+constexpr size_t UNARY_OPERATOR_COUNT = (sizeof(UnaryOperator::OPERATORS) / sizeof(UnaryOperator));
+
 class TypeChecker {};
