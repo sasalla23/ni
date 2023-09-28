@@ -149,7 +149,38 @@ public:
         this->set_type(variable_symbol.get_type());
     }
 
+    const Token& get_variable_name() {
+        return this->variable_name;
+    }
+
     ~VariableExpression() {}
+};
+
+class MemberAccessExpression : public Expression {
+friend class CallExpression;
+private:
+    std::unique_ptr<Expression> accessed;
+    Token member_name;
+public:
+    MemberAccessExpression(std::unique_ptr<Expression> accessed, const Token& member_name)
+        : Expression(accessed->get_location()), accessed(std::move(accessed)), member_name(member_name)
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "MemberAccessExpression(" << member_name.get_text() << ")" << std::endl;
+        this->accessed->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    const Token& get_member_name() const {
+        return this->member_name;
+    }
+    
+    virtual void type_check(TypeChecker&) override {
+        assert(false && "TODO");
+    }
+
+    ~MemberAccessExpression() {}
 };
 
 class CallExpression : public Expression {
@@ -170,8 +201,68 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        // We are 'abusing' the fact that dynamic_cast returns nullptr if the pointer types don't match
+        auto as_regular_function_call = dynamic_cast<VariableExpression *>(this->called.get());
+        auto as_method_call = dynamic_cast<MemberAccessExpression *>(this->called.get());
+
+        auto get_function_symbol = [&](const std::string& function_name) -> const FunctionSymbol& {
+            if (!type_checker.symbol_exists(function_name)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Undefined ('" << function_name << "') is not a function." << std::endl;
+                std::exit(1);
+            }
+            
+            const auto& symbol = type_checker.get_symbol(function_name);
+            if (symbol->get_symbol_type() != SymbolType::FUNCTION) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Defined ('" << function_name << "') is not a function." << std::endl;
+                std::exit(1);
+            }
+
+            return *dynamic_cast<FunctionSymbol *>(symbol.get());
+        };
+
+        if (as_regular_function_call != nullptr) {
+            const std::string& function_name = as_regular_function_call->get_variable_name().get_text();
+
+            const auto& function_symbol = get_function_symbol(function_name);
+
+            std::vector<std::shared_ptr<Type>> argument_types;
+            for (auto& argument : this->arguments) {
+                argument->type_check(type_checker);
+                argument_types.push_back(argument->get_type());
+            }
+            
+            if (!function_symbol.do_args_fit(argument_types)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Arguments for function '" << function_name << "' do not fit." << std::endl;
+                std::exit(1);
+            }
+
+            this->set_type(function_symbol.get_return_type());
+        } else if (as_method_call != nullptr) {
+            as_method_call->accessed->type_check(type_checker);
+            const std::string& function_name = as_method_call->get_member_name().get_text();
+
+            const auto& function_symbol = get_function_symbol(function_name);
+            
+            std::vector<std::shared_ptr<Type>> argument_types;
+            argument_types.push_back(as_method_call->accessed->get_type());
+
+            for (const auto& argument : this->arguments) {
+                argument->type_check(type_checker);
+                argument_types.push_back(argument->get_type());
+            }
+            
+            if (!function_symbol.do_args_fit(argument_types)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Arguments for function '" << function_name << "' do not fit." << std::endl;
+                std::exit(1);
+            }
+
+            this->set_type(function_symbol.get_return_type());
+
+        } else {
+            std::cerr << this->get_location() << ": TYPE_ERROR: The given expression is not callable." << std::endl;
+            std::exit(1);
+        }
     }
 
     ~CallExpression() {}
@@ -318,24 +409,3 @@ public:
     ~IndexingExpression() {}
 };
 
-class MemberAccessExpression : public Expression {
-private:
-    std::unique_ptr<Expression> accessed;
-    Token member_name;
-public:
-    MemberAccessExpression(std::unique_ptr<Expression> accessed, const Token& member_name)
-        : Expression(accessed->get_location()), accessed(std::move(accessed)), member_name(member_name)
-    {}
-
-    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
-        indent_layer(output_stream, layer);
-        output_stream << "MemberAccessExpression(" << member_name.get_text() << ")" << std::endl;
-        this->accessed->append_to_output_stream(output_stream, layer + 1);
-    }
-    
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
-    }
-
-    ~MemberAccessExpression() {}
-};

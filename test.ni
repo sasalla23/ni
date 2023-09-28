@@ -1,1 +1,1 @@
-x + 2
+"Hello, World".print_line()

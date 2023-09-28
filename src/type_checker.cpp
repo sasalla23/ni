@@ -103,6 +103,7 @@ constexpr size_t UNARY_OPERATOR_COUNT = (sizeof(UnaryOperator::OPERATORS) / size
 
 enum class SymbolType {
     VARIABLE,
+    FUNCTION
 };
 
 class Symbol {
@@ -132,17 +133,52 @@ public:
     ~VariableSymbol() {}
 };
 
+class FunctionSymbol : public Symbol {
+private:
+    std::shared_ptr<Type> return_type;
+    std::vector<std::shared_ptr<Type>> argument_types;
+public:
+    FunctionSymbol(size_t layer, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types)
+        : Symbol(layer, SymbolType::FUNCTION), return_type(return_type), argument_types(std::move(argument_types))
+    {}
+
+    // TODO: Have seperate error messages
+    bool do_args_fit(const std::vector<std::shared_ptr<Type>>& given_types) const {
+        if (given_types.size() != this->argument_types.size()) {
+            return false;
+        }
+
+        // TODO: Handle type inference
+        for (size_t i = 0; i < given_types.size(); i++) {
+            if (!given_types[i]->fits(this->argument_types[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    std::shared_ptr<Type> get_return_type() const {
+        return this->return_type;
+    }
+
+    ~FunctionSymbol() {}
+};
+
 class TypeChecker {
 private:
     // TODO: Decide whether variable shadowing should be a thing
     std::unordered_map<std::string, std::unique_ptr<Symbol>> symbol_table;
     size_t current_layer;
 public:
-    TypeChecker() : symbol_table(), current_layer(0) {}
+    TypeChecker() : symbol_table(), current_layer(0) {
+        symbol_table["print"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+        symbol_table["print_line"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+    }
 
     bool symbol_exists(const std::string& name) {
         return this->symbol_table.contains(name);
-    }
+    } 
 
     const std::unique_ptr<Symbol>& get_symbol(const std::string& name) {
         assert(this->symbol_exists(name) && "Symbol must exist to call this function");
