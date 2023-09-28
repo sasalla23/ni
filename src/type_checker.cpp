@@ -101,4 +101,53 @@ UnaryOperator UnaryOperator::OPERATORS[] = {
 
 constexpr size_t UNARY_OPERATOR_COUNT = (sizeof(UnaryOperator::OPERATORS) / sizeof(UnaryOperator));
 
-class TypeChecker {};
+enum class SymbolType {
+    VARIABLE,
+};
+
+class Symbol {
+private:
+    size_t layer;
+    SymbolType symbol_type;
+public:
+    Symbol(size_t layer, SymbolType symbol_type) : layer(layer), symbol_type(symbol_type) {}
+
+    SymbolType get_symbol_type() {
+        return this->symbol_type;
+    }
+
+    virtual ~Symbol() {}
+};
+
+class VariableSymbol : public Symbol {
+private:
+    std::shared_ptr<Type> type;
+public:
+    VariableSymbol(size_t layer, std::shared_ptr<Type> type) : Symbol(layer, SymbolType::VARIABLE), type(type) {}
+
+    std::shared_ptr<Type> get_type() const {
+        return this->type;
+    }
+
+    ~VariableSymbol() {}
+};
+
+class TypeChecker {
+private:
+    // TODO: Decide whether variable shadowing should be a thing
+    std::unordered_map<std::string, std::unique_ptr<Symbol>> symbol_table;
+    size_t current_layer;
+public:
+    TypeChecker() : symbol_table(), current_layer(0) {}
+
+    bool symbol_exists(const std::string& name) {
+        return this->symbol_table.contains(name);
+    }
+
+    const std::unique_ptr<Symbol>& get_symbol(const std::string& name) {
+        assert(this->symbol_exists(name) && "Symbol must exist to call this function");
+        return this->symbol_table[name];
+    }
+
+    ~TypeChecker() {}
+};

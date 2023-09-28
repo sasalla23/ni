@@ -132,8 +132,21 @@ public:
         output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        const std::string& name_string = this->variable_name.get_text();
+        if (!type_checker.symbol_exists(name_string)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Undefined reference to variable '" << name_string << "'." << std::endl;
+            std::exit(1);
+        }
+
+        const auto& symbol = type_checker.get_symbol(name_string);
+        if (symbol->get_symbol_type() != SymbolType::VARIABLE) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' is not a variable." << std::endl;
+            std::exit(1);
+        }
+
+        const auto& variable_symbol = *dynamic_cast<VariableSymbol *>(symbol.get());
+        this->set_type(variable_symbol.get_type());
     }
 
     ~VariableExpression() {}
