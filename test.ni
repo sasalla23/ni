@@ -1,1 +1,1 @@
-"Hello, World".print_line()
+[1,2,3].length

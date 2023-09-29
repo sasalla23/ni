@@ -176,8 +176,17 @@ public:
         return this->member_name;
     }
     
-    virtual void type_check(TypeChecker&) override {
-        assert(false && "TODO");
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->accessed->type_check(type_checker);
+        const auto& accessed_type = this->accessed->get_type();
+        const std::string& field_name = this->member_name.get_text();
+        
+        if (!accessed_type->has_field(field_name)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << accessed_type->to_string() << "> does not have a field '" << field_name << "'." << std::endl;
+            std::exit(1);
+        }
+
+        this->set_type(accessed_type->get_field_type(field_name));
     }
 
     ~MemberAccessExpression() {}

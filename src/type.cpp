@@ -19,6 +19,8 @@ protected:
     };
 
     TypeType type_type;
+    std::unordered_map<std::string, std::shared_ptr<Type>> fields;
+
 public:
     Type(TypeType type_type) : type_type(type_type) {}
 
@@ -32,6 +34,14 @@ public:
     virtual std::string to_string() const = 0;
     virtual bool fits(std::shared_ptr<Type> other) const = 0;
     virtual bool is_generic() const = 0;
+
+    bool has_field(const std::string& field_name) const {
+        return this->fields.contains(field_name);
+    }
+
+    std::shared_ptr<Type> get_field_type(const std::string& field_name) const {
+        return this->fields.at(field_name);
+    }
 
     virtual ~Type() {}
 };
@@ -61,7 +71,9 @@ private:
 public:
     ListType(std::shared_ptr<Type> inner_type)
         : Type(Type::TypeType::LIST), inner_type(inner_type)
-    {}
+    {
+        this->fields["length"] = Type::INT;
+    }
 
     virtual std::string to_string() const override {
         return "[" + inner_type->to_string() + "]";
@@ -113,7 +125,11 @@ private:
 public:
     PrimitiveType(Primitive primitive_type)
         : Type(Type::TypeType::PRIMITIVE), primitive_type(primitive_type)
-    {}
+    {
+        if (primitive_type == Primitive::STRING) {
+            this->fields["length"] = Type::INT;
+        }
+    }
 
     virtual std::string to_string() const override {
         std::stringstream output;

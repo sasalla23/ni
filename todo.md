@@ -9,7 +9,7 @@
 - [x] Global statements like function definitions 
 
 ## TypeChecker
-- [ ] type check expressions
+- [x] type check expressions
 - [ ] fix type inference
 - [ ] type check statements 
 - [ ] type check global definitions 
