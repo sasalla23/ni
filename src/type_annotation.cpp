@@ -35,7 +35,11 @@ public:
             case TokenType::STRING_KEYWORD: return Type::STRING;
             case TokenType::CHAR_KEYWORD: return Type::CHAR;
             case TokenType::BOOL_KEYWORD: return Type::BOOL;
-            default: assert(false && "unreachable"); 
+            default:
+                {
+                    std::cerr << this->get_location() << ": TYPE_ERROR: '" << this->to_string() << "' is not a type." << std::endl;
+                    std::exit(1);
+                }
         }
     }
 

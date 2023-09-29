@@ -340,16 +340,9 @@ public:
             }
 
             auto element_type = this->element_initializers[0]->get_type();
-            for (auto& element : this->element_initializers) {
-                if (!element->get_type()->is_generic()) {
-                    element_type = element->get_type();
-                    break;
-                }
-            }
 
-            for (size_t i = 0; i < this->element_initializers.size(); i++) {
+            for (size_t i = 1; i < this->element_initializers.size(); i++) {
                 auto& element = this->element_initializers[i];
-                element->type_check(type_checker);
                 if (!element->get_type()->fits(element_type)) {
                     std::cerr
                         << this->get_location()
@@ -361,10 +354,6 @@ public:
                         << element->get_type()->to_string()
                         << ">." << std::endl;
                     std::exit(1);
-                }
-                // TODO: Recursive type inference
-                if (element->get_type()->is_generic()) {
-                    element->set_type(element_type);
                 }
             }
             this->set_type(std::make_shared<ListType>(element_type));
@@ -418,3 +407,49 @@ public:
     ~IndexingExpression() {}
 };
 
+class CastExpression : public Expression {
+private:
+    std::unique_ptr<TypeAnnotation> type_annotation;
+    std::unique_ptr<Expression> casted;
+public:
+    CastExpression(const Location& start_location, std::unique_ptr<TypeAnnotation> type_annotation, std::unique_ptr<Expression> casted)
+        : Expression(start_location), type_annotation(std::move(type_annotation)), casted(std::move(casted))
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "CastExpression(" << this->type_annotation->to_string() << ")" << std::endl;
+        this->casted->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    virtual void type_check(TypeChecker& type_checker) {
+        auto destination_type = this->type_annotation->to_type();
+        this->casted->type_check(type_checker);
+        auto source_type = this->casted->get_type();
+
+        if (source_type->fits(destination_type)) {
+            if (source_type->is_generic()) {
+                this->casted->set_type(destination_type);
+            }
+        } else {
+            bool found = false;
+            
+            for (size_t i = 0; i < ALLOWED_TYPE_CAST_COUNT; i++) {
+                const auto& type_pair = TypeChecker::ALLOWED_TYPE_CASTS[i];
+                if (type_pair.first->fits(source_type) && type_pair.second->fits(destination_type)) {
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Cannot cast from <" << source_type->to_string() << "> to <" << destination_type->to_string() << ">." << std::endl;
+                std::exit(1);
+            }
+        }
+        
+        this->set_type(destination_type);
+    }
+
+    ~CastExpression() {}
+};

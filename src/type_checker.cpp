@@ -171,6 +171,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<Symbol>> symbol_table;
     size_t current_layer;
 public:
+    static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
     TypeChecker() : symbol_table(), current_layer(0) {
         symbol_table["print"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
         symbol_table["print_line"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
@@ -187,3 +188,21 @@ public:
 
     ~TypeChecker() {}
 };
+
+
+// SOURCE, DEST
+std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> TypeChecker::ALLOWED_TYPE_CASTS[] = {
+    { Type::INT, Type::CHAR },
+    { Type::INT, Type::STRING },
+    { Type::INT, Type::FLOAT },
+    { Type::CHAR, Type::INT },
+    { Type::CHAR, Type::STRING },
+    { Type::STRING, std::make_shared<ListType>(Type::CHAR) },
+    { std::make_shared<ListType>(Type::CHAR), Type::STRING },
+    { Type::FLOAT, Type::INT },
+    { Type::FLOAT, Type::STRING },
+    { Type::BOOL, Type::STRING },
+    { Type::BOOL, Type::INT },
+};
+
+constexpr size_t ALLOWED_TYPE_CAST_COUNT = (sizeof(TypeChecker::ALLOWED_TYPE_CASTS) / sizeof(TypeChecker::ALLOWED_TYPE_CASTS[0]));

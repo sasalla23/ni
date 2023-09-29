@@ -255,11 +255,21 @@ private:
             case TokenType::TILDE:
             case TokenType::BANG:
             case TokenType::MINUS:
-            case TokenType::PLUS: {
-                Token operator_token = this->consume_token();
-                auto operand = this->parse_unary_expression();
-                return std::make_unique<UnaryExpression>(operator_token, std::move(operand));
-            }
+            case TokenType::PLUS:
+                {
+                    Token operator_token = this->consume_token();
+                    auto operand = this->parse_unary_expression();
+                    return std::make_unique<UnaryExpression>(operator_token, std::move(operand));
+                }
+
+            case TokenType::HASH_TAG:
+                {
+                    Token hash_tag_token = this->consume_token();
+                    auto type_annotation = this->parse_type_annotation();
+                    auto casted_expression = this->parse_unary_expression();
+                    return std::make_unique<CastExpression>(hash_tag_token.get_location(), std::move(type_annotation), std::move(casted_expression));
+                }
+
             default:
                 return this->parse_primary_expression();
         }

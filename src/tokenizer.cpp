@@ -67,6 +67,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Location& location) 
     TOKEN_TYPE_ENTRY(AND_AND) \
     TOKEN_TYPE_ENTRY(PIPE_PIPE) \
     TOKEN_TYPE_ENTRY(EQUAL) \
+    TOKEN_TYPE_ENTRY(HASH_TAG) \
     \
     TOKEN_TYPE_ENTRY(OPEN_PARENTHESIS) \
     TOKEN_TYPE_ENTRY(CLOSE_PARENTHESIS) \
@@ -341,6 +342,13 @@ private:
                     } else {
                         return Token(TokenType::PIPE, "|", token_location);
                     }
+                }
+            
+            case '#':
+                {
+                    Location token_location = this->current_location;
+                    this->advance_char();
+                    return Token(TokenType::HASH_TAG, "#", token_location);
                 }
             
             case '^':
