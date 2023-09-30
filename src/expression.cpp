@@ -13,6 +13,7 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
     virtual void type_check(TypeChecker& type_checker) = 0;
+    virtual bool is_lvalue() const = 0;
 
     std::shared_ptr<Type> get_type() const {
         return this->type;
@@ -59,17 +60,43 @@ public:
         
         auto left_type = this->left->get_type();
         auto right_type = this->right->get_type();
-        
-        for (size_t i = 0; i < BINARY_OPERATOR_COUNT; i++) {
-            const BinaryOperator& binary_operator = BinaryOperator::OPERATORS[i];
-            if (binary_operator.fits_criteria(this->operator_token.get_type(), left_type, right_type)) {
-                this->set_type(binary_operator.get_return_type());
-                return;
+
+        if (this->operator_token.get_type() == TokenType::EQUAL) { // Assignment
+            if (!this->left->is_lvalue()) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Left expression of assignment is not assignable." << std::endl;
+                std::exit(1);
             }
+
+            if (!right_type->fits(left_type)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Cannot assign value of type <" << right_type->to_string() << "> to expression of type <" << left_type->to_string() << ">." << std::endl;
+                std::exit(1);
+            }
+
+            // This is questionable
+            this->set_type(left_type);
+        } else { // Regular Operator
+            for (size_t i = 0; i < BINARY_OPERATOR_COUNT; i++) {
+                const BinaryOperator& binary_operator = BinaryOperator::OPERATORS[i];
+                if (binary_operator.fits_criteria(this->operator_token.get_type(), left_type, right_type)) {
+                    this->set_type(binary_operator.get_return_type());
+                    return;
+                }
+            }
+            
+            std::cerr <<
+                this->get_location() <<
+                ": TYPE_ERROR: Operator '" <<
+                this->operator_token.get_text() <<
+                "' is not defined for types <" <<
+                left_type->to_string() <<
+                "> and <" <<
+                right_type->to_string() << ">." << std::endl;
+            std::exit(1);
         }
-        
-        std::cerr << this->get_location() << ": Operator '" << this->operator_token.get_text() << "' is not defined for types <" << left_type->to_string() << "> and <" << right_type->to_string() << ">." << std::endl;
-        std::exit(1);
+    }
+    
+    virtual bool is_lvalue() const override {
+        return false;
     }
 
     ~BinaryExpression() {}
@@ -115,6 +142,10 @@ public:
                 assert(false && "unreachable");
         }
     }
+    
+    virtual bool is_lvalue() const override {
+        return false;
+    }
 
     ~LiteralExpression() {}
 };
@@ -152,6 +183,10 @@ public:
     const Token& get_variable_name() {
         return this->variable_name;
     }
+    
+    virtual bool is_lvalue() const override {
+        return true;
+    }
 
     ~VariableExpression() {}
 };
@@ -182,11 +217,23 @@ public:
         const std::string& field_name = this->member_name.get_text();
         
         if (!accessed_type->has_field(field_name)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << accessed_type->to_string() << "> does not have a field '" << field_name << "'." << std::endl;
+            std::cerr <<
+                this->get_location() <<
+                ": TYPE_ERROR: Type <" <<
+                accessed_type->to_string() <<
+                "> does not have a field '" <<
+                field_name <<
+                "'." <<
+                std::endl;
             std::exit(1);
         }
 
         this->set_type(accessed_type->get_field_type(field_name));
+    }
+    
+    // TODO: Maybe add notion of a constant/mutable field
+    virtual bool is_lvalue() const override {
+        return false;
     }
 
     ~MemberAccessExpression() {}
@@ -273,6 +320,10 @@ public:
             std::exit(1);
         }
     }
+    
+    virtual bool is_lvalue() const override {
+        return false;
+    }
 
     ~CallExpression() {}
 };
@@ -310,6 +361,10 @@ public:
             << operand_type->to_string()
             << ">." << std::endl;
         std::exit(1);
+    }
+    
+    virtual bool is_lvalue() const override {
+        return false;
     }
 
     ~UnaryExpression() {}
@@ -359,6 +414,10 @@ public:
             this->set_type(std::make_shared<ListType>(element_type));
         }
     }
+    
+    virtual bool is_lvalue() const override {
+        return false;
+    }
 
     ~ListLiteralExpression() {}
 };
@@ -404,6 +463,11 @@ public:
         this->set_type(inner_type);
     }
 
+    // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
+    virtual bool is_lvalue() const override {
+        return this->operand->is_lvalue() && !this->operand->get_type()->fits(Type::STRING);
+    }
+
     ~IndexingExpression() {}
 };
 
@@ -443,12 +507,22 @@ public:
             }
             
             if (!found) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Cannot cast from <" << source_type->to_string() << "> to <" << destination_type->to_string() << ">." << std::endl;
+                std::cerr <<
+                    this->get_location() <<
+                    ": TYPE_ERROR: Cannot cast from <"
+                    << source_type->to_string() <<
+                    "> to <"
+                    << destination_type->to_string() <<
+                    ">." << std::endl;
                 std::exit(1);
             }
         }
         
         this->set_type(destination_type);
+    }
+    
+    virtual bool is_lvalue() const override {
+        return false;
     }
 
     ~CastExpression() {}

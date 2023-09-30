@@ -1,1 +1,1 @@
-[1,2,3].length
+print_line(#string 23)
