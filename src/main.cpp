@@ -28,10 +28,10 @@ int main(void) {
 
     TypeChecker type_checker;
 
-    auto expression = parser.parse_expression();
-    expression->type_check(type_checker);
-    std::cout << *expression;
-    std::cout << expression->get_type()->to_string() << std::endl;
+    auto statement = parser.parse_statement();
+    statement->type_check(type_checker);
+    std::cout << *statement;
+    //std::cout << expression->get_type()->to_string() << std::endl;
     //auto global_definitions = parser.parse_file();
     //for (auto& global_definition : global_definitions) {
     //    std::cout << *global_definition;

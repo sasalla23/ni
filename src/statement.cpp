@@ -8,6 +8,8 @@ public:
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
+    virtual void type_check(TypeChecker&) = 0; 
+
     const Location& get_location() const {
         return this->location;
     }
@@ -34,6 +36,11 @@ public:
         this->expression->append_to_output_stream(output_stream, layer + 1);
     }
 
+    // TODO: Maybe add warning if output type is non void?
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->expression->type_check(type_checker);
+    }
+
     ~ExpressionStatement() {}
 };
 
@@ -50,6 +57,16 @@ public:
         indent_layer(output_stream, layer);
         output_stream << "DefinitionStatement(" << variable_name.get_text() << ")" << std::endl;
         this->defining_expression->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    virtual void type_check(TypeChecker& type_checker) override {
+        const std::string& name_string = this->variable_name.get_text();
+        if (type_checker.symbol_exists(name_string)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' already exists." << std::endl;
+            std::exit(1);
+        }
+        this->defining_expression->type_check(type_checker);
+        type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
 
     ~DefinitionStatement() {}
@@ -74,6 +91,30 @@ public:
         this->defining_expression->append_to_output_stream(output_stream, layer + 1);
     }
 
+    virtual void type_check(TypeChecker& type_checker) override {
+        const std::string& name_string = this->variable_name.get_text();
+
+        if (type_checker.symbol_exists(name_string)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' already exists." << std::endl;
+            std::exit(1);
+        }
+
+        this->defining_expression->type_check(type_checker);
+        
+        auto variable_type = this->defining_expression->get_type();
+        auto annotated_type = this->type_annotation->to_type();
+
+        if (!variable_type->fits(annotated_type)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type of defining expression <"
+                << variable_type->to_string()
+                << "> for variable '" << name_string << "' does not fit annotated type <"
+                << annotated_type->to_string() << ">.";
+            std::exit(1);
+        }
+
+        type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+    }
+
     ~TypedDefinitionStatement() {}
 };
 
@@ -93,6 +134,15 @@ public:
             this->sub_statements[i]->append_to_output_stream(output_stream, layer + 1);
         }
     }
+    virtual void type_check(TypeChecker& type_checker) override {
+        type_checker.push_scope();
+
+        for (auto& statement : this->sub_statements) {
+            statement->type_check(type_checker);
+        }
+
+        type_checker.pop_scope();
+    }
 
     ~BlockStatement() {}
 };
@@ -111,6 +161,26 @@ public:
         output_stream << "IfStatement" << std::endl;
         this->condition->append_to_output_stream(output_stream, layer + 1);
         this->body->append_to_output_stream(output_stream, layer + 1);
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->condition->type_check(type_checker);
+        auto condition_type = this->condition->get_type();
+        
+        if (!condition_type->fits(Type::BOOL)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
+            std::exit(1);
+        }
+
+        auto as_definition_statement = dynamic_cast<DefinitionStatement *>(this->body.get());
+        auto as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->body.get());
+
+        if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
+            std::exit(1);
+        }
+
+        this->body->type_check(type_checker);
     }
 
     ~IfStatement() {}
@@ -133,6 +203,35 @@ public:
         this->then_body->append_to_output_stream(output_stream, layer + 1);
         this->else_body->append_to_output_stream(output_stream, layer + 1);
     }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->condition->type_check(type_checker);
+        auto condition_type = this->condition->get_type();
+        
+        if (!condition_type->fits(Type::BOOL)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
+            std::exit(1);
+        }
+
+        auto as_definition_statement = dynamic_cast<DefinitionStatement *>(this->then_body.get());
+        auto as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->then_body.get());
+
+        if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
+            std::exit(1);
+        }
+        
+        as_definition_statement = dynamic_cast<DefinitionStatement *>(this->else_body.get());
+        as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->else_body.get());
+
+        if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
+            std::exit(1);
+        }
+
+        this->then_body->type_check(type_checker);
+        this->else_body->type_check(type_checker);
+    }
 
     ~ElifStatement() {}
 };
@@ -153,6 +252,22 @@ public:
         this->body->append_to_output_stream(output_stream, layer + 1);
     }
     
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->condition->type_check(type_checker);
+        auto condition_type = this->condition->get_type();
+        
+        if (!condition_type->fits(Type::BOOL)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of while statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
+            std::exit(1);
+        }
+
+        type_checker.push_while_statement();
+
+        this->body->type_check(type_checker);
+
+        type_checker.pop_while_statement();
+    }
+    
     ~WhileStatement() {}
 };
 
@@ -163,6 +278,13 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
         indent_layer(output_stream, layer);
         output_stream << "BreakStatement" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        if (!type_checker.is_in_while_statement()) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Break statements are not allowed outside of while statements." << std::endl;
+            std::exit(1);
+        }
     }
 
     ~BreakStatement() {}
@@ -175,6 +297,13 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
         indent_layer(output_stream, layer);
         output_stream << "ContinueStatement" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        if (!type_checker.is_in_while_statement()) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Continue statements are not allowed outside of while statements." << std::endl;
+            std::exit(1);
+        }
     }
 
     ~ContinueStatement() {}
@@ -192,6 +321,10 @@ public:
         indent_layer(output_stream, layer);
         output_stream << "ReturnStatement" << std::endl;
         this->return_value->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->return_value->type_check(type_checker);
     }
     
     ~ReturnStatement() {}

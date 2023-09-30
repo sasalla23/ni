@@ -113,9 +113,11 @@ private:
 public:
     Symbol(size_t layer, SymbolType symbol_type) : layer(layer), symbol_type(symbol_type) {}
 
-    SymbolType get_symbol_type() {
+    SymbolType get_symbol_type() const {
         return this->symbol_type;
     }
+
+    size_t get_layer() const { return this->layer; }
 
     virtual ~Symbol() {}
 };
@@ -133,6 +135,7 @@ public:
     ~VariableSymbol() {}
 };
 
+// TODO: Maybe add overloads
 class FunctionSymbol : public Symbol {
 private:
     std::shared_ptr<Type> return_type;
@@ -170,11 +173,12 @@ private:
     // TODO: Decide whether variable shadowing should be a thing
     std::unordered_map<std::string, std::unique_ptr<Symbol>> symbol_table;
     size_t current_layer;
+    size_t while_statement_layer = 0;
 public:
     static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
-    TypeChecker() : symbol_table(), current_layer(0) {
-        symbol_table["print"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
-        symbol_table["print_line"] = std::make_unique<FunctionSymbol>(0, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0) {
+        this->symbol_table["print"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+        this->symbol_table["print_line"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
     }
 
     bool symbol_exists(const std::string& name) {
@@ -184,6 +188,44 @@ public:
     const std::unique_ptr<Symbol>& get_symbol(const std::string& name) {
         assert(this->symbol_exists(name) && "Symbol must exist to call this function");
         return this->symbol_table[name];
+    }
+
+    void add_variable_symbol(const std::string& name, std::shared_ptr<Type> variable_type) {
+        this->symbol_table[name] = std::make_unique<VariableSymbol>(this->current_layer, variable_type);
+    }
+
+    void push_while_statement() {
+        this->while_statement_layer += 1;
+    }
+
+    bool is_in_while_statement() {
+        return this->while_statement_layer > 0;
+    }
+    
+    void pop_while_statement() {
+        assert(this->while_statement_layer > 0);
+        this->while_statement_layer -= 1;
+    }
+
+    void push_scope() {
+        this->current_layer += 1;
+    }
+
+    void pop_scope() {
+        assert(this->current_layer > 0);
+        std::vector<std::string> to_remove;
+        for (const auto& symbol_entry : this->symbol_table) {
+            if (symbol_entry.second->get_layer() == this->current_layer) {
+                to_remove.push_back(symbol_entry.first);
+            }
+        }
+        
+        for (const auto& popped_symbols : to_remove) {
+            this->symbol_table.erase(popped_symbols);
+        }
+
+        this->current_layer -= 1;
+
     }
 
     ~TypeChecker() {}
