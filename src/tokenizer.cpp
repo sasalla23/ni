@@ -247,9 +247,16 @@ private:
             
             case '/':
                 {
-                    Token slash_token = Token(TokenType::SLASH, "/", this->current_location);
+                    Location start_location = this->current_location;
                     this->advance_char();
-                    return slash_token;
+                    if (this->current_char() == '/') {
+                        while (this->current_char() != '\n' && this->current_char() != '\0') {
+                            this->advance_char();
+                        }
+                        return next_token();
+                    } else {
+                        return Token(TokenType::SLASH, "/", start_location);
+                    }
                 }
             
             case '!': 

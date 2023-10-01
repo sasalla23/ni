@@ -30,6 +30,7 @@ fun compare_strings(a: string, b: string): bool {
     return true;
 }
 
+
 fun main(args: [string]): void {
     if (args.length < 1) {
         print_line("That's not enough arguments!");
