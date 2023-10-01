@@ -175,9 +175,14 @@ public:
             case TokenType::RETURN_KEYWORD:
                 {
                     Token return_keyword = this->consume_token();
-                    auto return_value = this->parse_expression();
-                    (void)this->expect_token(TokenType::SEMI_COLON);
-                    return std::make_unique<ReturnStatement>(return_keyword.get_location(), std::move(return_value));
+                    if (this->get_current_token().get_type() == TokenType::SEMI_COLON) {
+                        (void) this->consume_token();
+                        return std::make_unique<VoidReturnStatement>(return_keyword.get_location());
+                    } else {
+                        auto return_value = this->parse_expression();
+                        (void)this->expect_token(TokenType::SEMI_COLON);
+                        return std::make_unique<ReturnStatement>(return_keyword.get_location(), std::move(return_value));
+                    }
                 }
 
             case TokenType::IF_KEYWORD:

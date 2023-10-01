@@ -193,6 +193,10 @@ public:
     void add_variable_symbol(const std::string& name, std::shared_ptr<Type> variable_type) {
         this->symbol_table[name] = std::make_unique<VariableSymbol>(this->current_layer, variable_type);
     }
+    
+    void add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {
+        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types));
+    }
 
     void push_while_statement() {
         this->while_statement_layer += 1;

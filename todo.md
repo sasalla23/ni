@@ -10,6 +10,6 @@
 
 ## TypeChecker
 - [x] type check expressions
-- [ ] fix type inference
-- [ ] type check statements 
-- [ ] type check global definitions 
+- [x] type check statements 
+- [x] type check global definitions 
+- [ ] fix invalid return values

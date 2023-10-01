@@ -9,6 +9,7 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
     virtual void type_check(TypeChecker&) = 0; 
+    virtual bool is_definite_return(std::shared_ptr<Type>) const = 0;
 
     const Location& get_location() const {
         return this->location;
@@ -41,6 +42,10 @@ public:
         this->expression->type_check(type_checker);
     }
 
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false;
+    }
+
     ~ExpressionStatement() {}
 };
 
@@ -67,6 +72,10 @@ public:
         }
         this->defining_expression->type_check(type_checker);
         type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+    }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false;
     }
 
     ~DefinitionStatement() {}
@@ -114,6 +123,10 @@ public:
 
         type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false;
+    }
 
     ~TypedDefinitionStatement() {}
 };
@@ -142,6 +155,17 @@ public:
         }
 
         type_checker.pop_scope();
+    }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
+        for (size_t j = sub_statements.size(); j >= 1; j--) {
+            size_t i = j - 1;
+            // TODO: Print warning if there are statements below a definite return
+            if (this->sub_statements[i]->is_definite_return(return_type)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     ~BlockStatement() {}
@@ -181,6 +205,10 @@ public:
         }
 
         this->body->type_check(type_checker);
+    }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false;
     }
 
     ~IfStatement() {}
@@ -232,6 +260,10 @@ public:
         this->then_body->type_check(type_checker);
         this->else_body->type_check(type_checker);
     }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
+        return this->then_body->is_definite_return(return_type) && this->else_body->is_definite_return(return_type);
+    }
 
     ~ElifStatement() {}
 };
@@ -267,6 +299,11 @@ public:
 
         type_checker.pop_while_statement();
     }
+
+
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false; 
+    }
     
     ~WhileStatement() {}
 };
@@ -286,6 +323,10 @@ public:
             std::exit(1);
         }
     }
+    
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false; 
+    }
 
     ~BreakStatement() {}
 };
@@ -304,6 +345,10 @@ public:
             std::cerr << this->get_location() << ": TYPE_ERROR: Continue statements are not allowed outside of while statements." << std::endl;
             std::exit(1);
         }
+    }
+
+    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+        return false; 
     }
 
     ~ContinueStatement() {}
@@ -327,5 +372,29 @@ public:
         this->return_value->type_check(type_checker);
     }
     
+    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
+        return this->return_value->get_type()->fits(return_type); 
+    }
+    
     ~ReturnStatement() {}
+};
+
+class VoidReturnStatement : public Statement {
+public:
+    VoidReturnStatement(const Location& start_location)
+        : Statement(start_location)
+    {}
+    
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "ReturnStatement" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker&) override {}
+    
+    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
+        return Type::VOID->fits(return_type);
+    }
+
+    ~VoidReturnStatement() {}
 };

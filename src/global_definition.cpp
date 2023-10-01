@@ -6,6 +6,12 @@ public:
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
+    virtual void type_check(TypeChecker& type_checker) = 0;
+
+    const Location& get_location() const {
+        return this->location;
+    }
+
     virtual ~GlobalDefinition() {};
 };
 
@@ -18,9 +24,10 @@ class ArgumentDefinition {
 private:
     Token name;
     std::unique_ptr<TypeAnnotation> type;
+    Location location;
 public:
     ArgumentDefinition(const Token& name, std::unique_ptr<TypeAnnotation> type)
-        : name(name), type(std::move(type))
+        : name(name), type(std::move(type)), location(name.get_location())
     {}
     
     const std::unique_ptr<TypeAnnotation>& get_type() const {
@@ -30,6 +37,10 @@ public:
 
     const Token& get_name() const {
         return this->name;
+    }
+
+    const Location& get_location() const {
+        return this->location;
     }
 
     ~ArgumentDefinition() {}
@@ -60,6 +71,43 @@ public:
         indent_layer(output_stream, layer+1);
         output_stream << return_type->to_string() << std::endl;
         this->body->append_to_output_stream(output_stream, layer + 1);
+    }
+
+    virtual void type_check(TypeChecker& type_checker) override {
+        const std::string& function_name = this->name.get_text();
+
+        if (type_checker.symbol_exists(function_name)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << function_name << "' already exists." << std::endl;
+            std::exit(1);
+        }
+
+        auto parsed_return_type = this->return_type->to_type();
+
+        type_checker.push_scope();
+        std::vector<std::shared_ptr<Type>> argument_types;
+
+        for (const auto& argument : this->arguments) {
+            auto argument_type = argument->get_type()->to_type();
+            auto argument_name = argument->get_name().get_text();
+
+            if (type_checker.symbol_exists(argument_name)) {
+                std::cerr << argument->get_location() << ": TYPE_ERROR: Symbol '" << argument_name << "' already exists." << std::endl;
+                std::exit(1);
+            }
+
+            type_checker.add_variable_symbol(argument_name, argument_type);
+            argument_types.push_back(argument_type);
+        }
+
+        this->body->type_check(type_checker);
+
+        if (!parsed_return_type->fits(Type::VOID) && !this->body->is_definite_return(parsed_return_type)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Function '" << function_name << "' does not definitely return a value." << std::endl;
+            std::exit(1);
+        }
+
+        type_checker.pop_scope();
+        type_checker.add_function_symbol(function_name, parsed_return_type, std::move(argument_types));
     }
 
     ~FunctionDefinition() {}

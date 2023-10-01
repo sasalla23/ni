@@ -26,16 +26,13 @@ int main(void) {
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
 
+    auto global_definitions = parser.parse_file();
     TypeChecker type_checker;
 
-    auto statement = parser.parse_statement();
-    statement->type_check(type_checker);
-    std::cout << *statement;
-    //std::cout << expression->get_type()->to_string() << std::endl;
-    //auto global_definitions = parser.parse_file();
-    //for (auto& global_definition : global_definitions) {
-    //    std::cout << *global_definition;
-    //}
+    for (auto& global_definition : global_definitions) {
+        global_definition->type_check(type_checker);
+        std::cout << *global_definition;
+    }
 
     return 0;
 }
