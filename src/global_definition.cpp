@@ -82,6 +82,7 @@ public:
         }
 
         auto parsed_return_type = this->return_type->to_type();
+        type_checker.set_current_return_type(parsed_return_type);
 
         type_checker.push_scope();
         std::vector<std::shared_ptr<Type>> argument_types;
@@ -101,7 +102,7 @@ public:
 
         this->body->type_check(type_checker);
 
-        if (!parsed_return_type->fits(Type::VOID) && !this->body->is_definite_return(parsed_return_type)) {
+        if (!parsed_return_type->fits(Type::VOID) && !this->body->is_definite_return()) {
             std::cerr << this->get_location() << ": TYPE_ERROR: Function '" << function_name << "' does not definitely return a value." << std::endl;
             std::exit(1);
         }

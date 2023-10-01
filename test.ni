@@ -16,7 +16,7 @@ fun fibonnaci(n: int): int {
 
 fun compare_strings(a: string, b: string): bool {
     if (a.length != b.length) {
-        return 23;
+        return false;
     }
 
     var index = 0;

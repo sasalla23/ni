@@ -174,11 +174,22 @@ private:
     std::unordered_map<std::string, std::unique_ptr<Symbol>> symbol_table;
     size_t current_layer;
     size_t while_statement_layer = 0;
+    std::shared_ptr<Type> current_return_type;
 public:
     static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
-    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0) {
+
+    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0), current_return_type(Type::NO) {
         this->symbol_table["print"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
         this->symbol_table["print_line"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+    }
+
+    std::shared_ptr<Type> get_current_return_type() const {
+        return this->current_return_type;
+    }
+    
+
+    void set_current_return_type(std::shared_ptr<Type> return_type) {
+        this->current_return_type = return_type;
     }
 
     bool symbol_exists(const std::string& name) {

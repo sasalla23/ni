@@ -9,7 +9,7 @@ public:
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
     virtual void type_check(TypeChecker&) = 0; 
-    virtual bool is_definite_return(std::shared_ptr<Type>) const = 0;
+    virtual bool is_definite_return() const = 0;
 
     const Location& get_location() const {
         return this->location;
@@ -42,7 +42,7 @@ public:
         this->expression->type_check(type_checker);
     }
 
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false;
     }
 
@@ -74,7 +74,7 @@ public:
         type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false;
     }
 
@@ -124,7 +124,7 @@ public:
         type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false;
     }
 
@@ -157,11 +157,11 @@ public:
         type_checker.pop_scope();
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
+    virtual bool is_definite_return() const override {
         for (size_t j = sub_statements.size(); j >= 1; j--) {
             size_t i = j - 1;
             // TODO: Print warning if there are statements below a definite return
-            if (this->sub_statements[i]->is_definite_return(return_type)) {
+            if (this->sub_statements[i]->is_definite_return()) {
                 return true;
             }
         }
@@ -207,7 +207,7 @@ public:
         this->body->type_check(type_checker);
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false;
     }
 
@@ -261,8 +261,8 @@ public:
         this->else_body->type_check(type_checker);
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
-        return this->then_body->is_definite_return(return_type) && this->else_body->is_definite_return(return_type);
+    virtual bool is_definite_return() const override {
+        return this->then_body->is_definite_return() && this->else_body->is_definite_return();
     }
 
     ~ElifStatement() {}
@@ -301,7 +301,7 @@ public:
     }
 
 
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false; 
     }
     
@@ -324,7 +324,7 @@ public:
         }
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false; 
     }
 
@@ -347,7 +347,7 @@ public:
         }
     }
 
-    virtual bool is_definite_return(std::shared_ptr<Type>) const override {
+    virtual bool is_definite_return() const override {
         return false; 
     }
 
@@ -370,10 +370,22 @@ public:
 
     virtual void type_check(TypeChecker& type_checker) override {
         this->return_value->type_check(type_checker);
+        auto returned_type = this->return_value->get_type();
+        auto expected_return_type = type_checker.get_current_return_type();
+
+        if (!returned_type->fits(expected_return_type)) {
+            std::cerr << this->get_location() <<
+                ": TYPE_ERROR: Return value with type <"
+                << returned_type->to_string()
+                << "> of function does not fit annotated return type <"
+                << expected_return_type->to_string() << ">."
+                << std::endl; 
+            std::exit(1);
+        }
     }
     
-    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
-        return this->return_value->get_type()->fits(return_type); 
+    virtual bool is_definite_return() const override {
+        return true; 
     }
     
     ~ReturnStatement() {}
@@ -390,10 +402,16 @@ public:
         output_stream << "ReturnStatement" << std::endl;
     }
     
-    virtual void type_check(TypeChecker&) override {}
+    virtual void type_check(TypeChecker& type_checker) override {
+        auto expected_return_type = type_checker.get_current_return_type();
+        if (!Type::VOID->fits(expected_return_type)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Return statement of non void function must return a value (expected type <" << expected_return_type->to_string() << ">)." << std::endl;
+            std::exit(1);
+        }
+    }
     
-    virtual bool is_definite_return(std::shared_ptr<Type> return_type) const override {
-        return Type::VOID->fits(return_type);
+    virtual bool is_definite_return() const override {
+        return true;
     }
 
     ~VoidReturnStatement() {}
