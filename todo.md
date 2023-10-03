@@ -7,10 +7,28 @@
 - [x] Char literals
 - [x] Struct member access 
 - [x] Global statements like function definitions 
-- [ ] comments
+- [x] comments
 
 ## TypeChecker
 - [x] type check expressions
 - [x] type check statements 
 - [x] type check global definitions 
 - [x] fix invalid return values
+
+## Code Generator / VM
+- [x] float operators
+- [ ] comparison operators / jumps
+- [ ] short circuit
+- [ ] variables
+- [ ] assignments
+- [ ] member access
+- [ ] function calls 
+- [ ] lists / indexing
+- [ ] type casts
+- [ ] garbage collector
+- [ ] variable definitions
+- [ ] scopes
+- [ ] control flow: if / else / while / continue / while / return
+- [ ] function definitions
+- [ ] command line args 
+- [ ] standard library

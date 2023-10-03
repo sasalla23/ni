@@ -125,7 +125,12 @@ union Word {
     INSTRUCTION_ENTRY(ISHR) \
     INSTRUCTION_ENTRY(IAND) \
     INSTRUCTION_ENTRY(IOR) \
-    INSTRUCTION_ENTRY(IXOR) 
+    INSTRUCTION_ENTRY(IXOR) \
+    \
+    INSTRUCTION_ENTRY(FADD) \
+    INSTRUCTION_ENTRY(FSUB) \
+    INSTRUCTION_ENTRY(FMUL) \
+    INSTRUCTION_ENTRY(FDIV) 
 
 
 #define INSTRUCTION_ENTRY(x) x,
@@ -185,38 +190,6 @@ public:
     Word get_content() const { return this->content; }
 };
 
-class Frame {
-private:
-    std::vector<StackElement> operand_stack;
-    std::vector<StackElement> local_variables;
-    size_t return_address;
-public:
-    Frame(size_t return_address)
-        : operand_stack(), local_variables(), return_address(return_address)
-    {}
-
-    void push_operand(StackElement operand) {
-        this->operand_stack.push_back(operand);
-    }
-    
-    StackElement get_top_operand() {
-        return operand_stack.back();
-    }
-
-    StackElement pop_operand() {
-        StackElement top = get_top_operand();
-        operand_stack.pop_back();
-        return top;
-    }
-
-
-    void print() {
-        std::cout << "Operand Stack:" << std::endl;
-        for (const auto& stack_element : this->operand_stack) {
-            std::cout << stack_element.get_content().as_int << std::endl;
-        }
-    }
-};
 
 enum PredefinedLayouts {
     CHAR_LAYOUT = 0,
@@ -269,19 +242,34 @@ public:
     }
 };
 
+class CallInfo {
+private:
+    size_t return_address;
+    size_t local_var_offset;
+public:
+    CallInfo(size_t return_address, size_t local_var_offset)
+        : return_address(return_address), local_var_offset(local_var_offset)
+    {}
+
+    size_t get_return_address() const { return this->return_address; }
+    size_t get_local_var_offset() const { return this->local_var_offset; }
+};
+
 class VirtualMachine {
 private:
     std::vector<AllocatedObject> allocated_objects;
-    std::vector<Frame> call_stack;
+    std::vector<CallInfo> call_stack;
+    
+    std::vector<StackElement> operand_stack;
+    std::vector<StackElement> local_vars;
+
     std::vector<Instruction> program;
     std::vector<char> static_memory;
     size_t instruction_pointer;
 public:
     VirtualMachine(std::vector<Instruction> program, std::vector<char> static_memory)
-        : allocated_objects(), call_stack(), program(std::move(program)), static_memory(std::move(static_memory)), instruction_pointer(0)
-    {
-        this->call_stack.push_back(Frame(0));
-    }
+        : allocated_objects(), call_stack(), operand_stack(), local_vars(), program(std::move(program)), static_memory(std::move(static_memory)), instruction_pointer(0)
+    {}
 
     Instruction get_current_instruction() {
         if (this->instruction_pointer < this->program.size()) {
@@ -302,23 +290,24 @@ public:
     }
 
     void push_on_stack(StackElement value) {
-        assert(this->call_stack.size() > 0);
-        this->call_stack.back().push_operand(value);
+        this->operand_stack.push_back(value);
     }
 
     StackElement pop_from_stack() {
-        assert(this->call_stack.size() > 0);
-        return this->call_stack.back().pop_operand();
+        StackElement top = this->get_stack_top();
+        this->operand_stack.pop_back();
+        return top;
     }
     
     StackElement get_stack_top() {
-        assert(this->call_stack.size() > 0);
-        return this->call_stack.back().get_top_operand();
+        return this->operand_stack.back();
     }
 
     void print_current_frame() {
-        assert(this->call_stack.size() > 0);
-        this->call_stack.back().print();
+        std::cout << "Operand Stack: " << std::endl;
+        for (const auto& element : this->operand_stack) {
+            std::cout << element.get_content().as_int << std::endl;
+        }
     }
 
     void execute_instruction() {
@@ -417,7 +406,7 @@ public:
                     this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = first_operand OP second_operand })); \
                     this->instruction_pointer += 1; \
                 } \
-                break; \
+                break; 
 
             BINARY_INT_INSTRUCTION(IADD, +)
             BINARY_INT_INSTRUCTION(ISUB, -)
@@ -431,6 +420,20 @@ public:
             BINARY_INT_INSTRUCTION(IOR, |)
             BINARY_INT_INSTRUCTION(IXOR, ^)
 
+#define BINARY_FLOAT_INSTRUCTION(INST,OP) \
+            case InstructionType:: INST : \
+                { \
+                    double second_operand = this->pop_from_stack().get_content().as_float; \
+                    double first_operand = this->pop_from_stack().get_content().as_float; \
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_float = first_operand OP second_operand })); \
+                    this->instruction_pointer += 1; \
+                } \
+                break; 
+            
+            BINARY_FLOAT_INSTRUCTION(FADD, +)
+            BINARY_FLOAT_INSTRUCTION(FSUB, -)
+            BINARY_FLOAT_INSTRUCTION(FMUL, *)
+            BINARY_FLOAT_INSTRUCTION(FDIV, /) // TODO: Check for divide by zero
 
             case InstructionType::HALT:
                 break;

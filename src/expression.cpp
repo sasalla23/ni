@@ -105,8 +105,9 @@ public:
         if (!is_special_operator) {
             this->left->emit(code_generator);
             this->right->emit(code_generator);
-            
-            if (this->left->get_type()->fits(Type::INT)) {
+            auto left_type = this->left->get_type();
+
+            if (left_type->fits(Type::INT)) {
                 switch (this->operator_token.get_type()) {
                     case TokenType::PLUS:
                         code_generator.push_instruction(Instruction(InstructionType::IADD));
@@ -144,7 +145,25 @@ public:
                     default:
                         assert(false && "not implemented");
                 }
+            } else if (left_type->fits(Type::FLOAT)) {
+                switch (this->operator_token.get_type()) {
+                    case TokenType::PLUS:
+                        code_generator.push_instruction(Instruction(InstructionType::FADD));
+                        break;
+                    case TokenType::MINUS:
+                        code_generator.push_instruction(Instruction(InstructionType::FSUB));
+                        break;
+                    case TokenType::STAR:
+                        code_generator.push_instruction(Instruction(InstructionType::FMUL));
+                        break;
+                    case TokenType::SLASH:
+                        code_generator.push_instruction(Instruction(InstructionType::FDIV));
+                        break;
+                    default:
+                        assert(false && "not implemented");
+                }
             }
+
         } else {
             assert(false && "TODO");
         }
