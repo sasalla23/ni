@@ -5,6 +5,7 @@
 #include <vector>
 #include <cassert>
 #include <unordered_map>
+#include <cstring>
 
 void indent_layer(std::ostream& output_stream, size_t layer) {
     for (size_t i = 0; i < layer; i++) {
@@ -36,7 +37,7 @@ int main(void) {
     CodeGenerator code_generator;
     expression->emit(code_generator);
 
-    VirtualMachine virtual_machine(code_generator.get_program());
+    VirtualMachine virtual_machine(std::move(code_generator.get_program()), std::move(code_generator.get_static_data()));
     virtual_machine.execute();
     virtual_machine.print_current_frame();
 

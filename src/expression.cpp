@@ -107,6 +107,58 @@ public:
     ~BinaryExpression() {}
 };
 
+// TODO: improve error reporting
+bool parse_escaped_string(const std::string& input_string, std::string& output) {
+    output.reserve(input_string.size());
+    std::stringstream stream(output);
+    for (size_t i = 0; i < input_string.size(); i++) {
+        if (input_string[i] == '\\') {
+            if (i >= input_string.size() - 1)
+                return false;
+
+            i++;
+            switch (input_string[i]) {
+                case '\'':
+                    stream << '\'';
+                    break;
+                case '\"':
+                    stream << '\"';
+                    break;
+                case '\\':
+                    stream << '\\';
+                    break;
+                case 'a':
+                    stream << '\a';
+                    break;
+                case 'b':
+                    stream << '\b';
+                    break;
+                case 'f':
+                    stream << '\f';
+                    break;
+                case 'n':
+                    stream << '\n';
+                    break;
+                case 'r':
+                    stream << '\r';
+                    break;
+                case 't':
+                    stream << '\t';
+                    break;
+                case 'v':
+                    stream << '\v';
+                    break;
+                default:
+                    return false;
+            }
+        } else {
+            stream << input_string[i];
+        }
+    }
+    output = stream.str();
+    return true;
+}
+
 class LiteralExpression : public Expression {
 private:
     Token literal_token;
@@ -154,37 +206,83 @@ public:
             case TokenType::INT_LITERAL:
                 {
                     int64_t parsed;
-
                     try {
                         parsed = std::stol(literal_string);
                     } catch(std::exception& e) {
                         std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse integer literal '" << literal_string << "'." << std::endl;
                         std::exit(1);
                     }
-
                     code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = parsed }));
                 }
                 break;
             
             case TokenType::STRING_LITERAL:
-                assert(false && "TODO");
+                {
+                    std::string parsed_string;
+                    assert(literal_string.size() >= 2);
+                    
+                    if (!parse_escaped_string(literal_string.substr(1,literal_string.size()-2), parsed_string)) {
+                        std::cerr << this->get_location() << ": Char literal contains invalid escape characters: " << literal_string << "." << std::endl;
+                        std::exit(1);
+                    }
+
+                    // allocate string data as static memory
+                    size_t static_offset = code_generator.allocate_static_objects(ObjectLayout::predefined_layouts[CHAR_LAYOUT], parsed_string.size());
+                    std::memcpy(code_generator.get_static_data_pointer(static_offset), parsed_string.data(), sizeof(char) * parsed_string.size());
+
+                    // allocate string object on the heap
+                    // - first push 1 on the stack (1 string object will be allocated)
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+                    // - use allocate instruction to allocate string object on the heap (1 * sizeof(string) bytes)
+                    code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = STRING_LAYOUT }));
+                    code_generator.push_instruction(Instruction(InstructionType::DUP));
+
+                    // write string size into first field of string object
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)parsed_string.size() }));
+                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                    
+                    // duplicate pointer value because it was consumed by WRITEW
+                    code_generator.push_instruction(Instruction(InstructionType::DUP));
+                    // offset pointer to the data field of the string object
+                    // - push offset (in this case there is one word before the data pointer)
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)sizeof(Word) }));
+                    // - use pointer add instruction to offset the pointer
+                    code_generator.push_instruction(Instruction(InstructionType::PADD));
+                    // - get the absolute pointer to the string data in the static memory
+                    code_generator.push_instruction(Instruction(InstructionType::SPTR, Word { .as_int = (int64_t)static_offset }));
+                    // - write the pointer address into the data field of the string object
+                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                }
                 break;
 
             case TokenType::CHAR_LITERAL:
-                assert(false && "TODO");
+                {
+                    std::string parsed_string;
+                    assert(literal_string.size() >= 2);
+                    
+                    if (!parse_escaped_string(literal_string.substr(1,literal_string.size()-2), parsed_string)) {
+                        std::cerr << this->get_location() << ": Char literal contains invalid escape characters: " << literal_string << "." << std::endl;
+                        std::exit(1);
+                    }
+
+                    if (parsed_string.size() != 1) {
+                        std::cerr << this->get_location() << ": Char literal must have exactly one character, instead got " << parsed_string.size() << "." << std::endl;
+                        std::exit(1);
+                    }
+
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)parsed_string[0] }));
+                }
                 break;
             
             case TokenType::FLOAT_LITERAL:
                 {
                     double parsed;
-
                     try {
                         parsed = std::stod(literal_string);
                     } catch(std::exception& e) {
                         std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse float literal '" << literal_string << "'." << std::endl;
                         std::exit(1);
                     }
-
                     code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_float = parsed }));
                 }
                 break;
