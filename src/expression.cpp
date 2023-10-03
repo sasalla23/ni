@@ -96,8 +96,58 @@ public:
         }
     }
 
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        // assignment / short circuit operators are built different
+        bool is_special_operator = this->operator_token.get_type() == TokenType::EQUAL
+            || this->operator_token.get_type() == TokenType::AND_AND
+            || this->operator_token.get_type() == TokenType::PIPE_PIPE;
+
+        if (!is_special_operator) {
+            this->left->emit(code_generator);
+            this->right->emit(code_generator);
+            
+            if (this->left->get_type()->fits(Type::INT)) {
+                switch (this->operator_token.get_type()) {
+                    case TokenType::PLUS:
+                        code_generator.push_instruction(Instruction(InstructionType::IADD));
+                        break;
+                    case TokenType::MINUS:
+                        code_generator.push_instruction(Instruction(InstructionType::ISUB));
+                        break;
+                    case TokenType::STAR:
+                        code_generator.push_instruction(Instruction(InstructionType::IMUL));
+                        break;
+                    case TokenType::SLASH:
+                        code_generator.push_instruction(Instruction(InstructionType::IDIV));
+                        break;
+
+                    case TokenType::LESS_LESS:
+                        code_generator.push_instruction(Instruction(InstructionType::ISHL));
+                        break;
+                    case TokenType::GREATER_GREATER:
+                        code_generator.push_instruction(Instruction(InstructionType::ISHR));
+                        break;
+                    case TokenType::AND:
+                        code_generator.push_instruction(Instruction(InstructionType::IAND));
+                        break;
+                    case TokenType::PIPE:
+                        code_generator.push_instruction(Instruction(InstructionType::IOR));
+                        break;
+                    case TokenType::HAT:
+                        code_generator.push_instruction(Instruction(InstructionType::IXOR));
+                        break;
+
+                    case TokenType::PERCENT:
+                        code_generator.push_instruction(Instruction(InstructionType::IMOD));
+                        break;
+
+                    default:
+                        assert(false && "not implemented");
+                }
+            }
+        } else {
+            assert(false && "TODO");
+        }
     }
     
     virtual bool is_lvalue() const override {
@@ -532,8 +582,29 @@ public:
         std::exit(1);
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        this->operand->emit(code_generator); 
+        switch (this->operator_token.get_type()) {
+            case TokenType::TILDE:
+                code_generator.push_instruction(Instruction(InstructionType::IBNEG));
+                break;
+            case TokenType::PLUS:
+                break;
+            case TokenType::MINUS:
+                if (this->operand->get_type()->fits(Type::FLOAT)) {
+                    code_generator.push_instruction(Instruction(InstructionType::FNEG));
+                } else if (this->operand->get_type()->fits(Type::INT)) {
+                    code_generator.push_instruction(Instruction(InstructionType::INEG));
+                } else {
+                    assert(false && "unreachable");
+                }
+                break;
+            case TokenType::BANG:
+                code_generator.push_instruction(Instruction(InstructionType::LNEG));
+                break;
+            default:
+                assert(false && "unreachable");
+        }
     }
     
     virtual bool is_lvalue() const override {

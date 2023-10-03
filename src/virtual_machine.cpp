@@ -109,7 +109,24 @@ union Word {
     INSTRUCTION_ENTRY(WRITEW) \
     INSTRUCTION_ENTRY(PADD) \
     INSTRUCTION_ENTRY(SPTR) \
-    INSTRUCTION_ENTRY(PRINT)
+    INSTRUCTION_ENTRY(PRINT) \
+    INSTRUCTION_ENTRY(IBNEG)  \
+    INSTRUCTION_ENTRY(FNEG) \
+    INSTRUCTION_ENTRY(INEG)  \
+    INSTRUCTION_ENTRY(LNEG) \
+    \
+    INSTRUCTION_ENTRY(IADD) \
+    INSTRUCTION_ENTRY(ISUB) \
+    INSTRUCTION_ENTRY(IMUL) \
+    INSTRUCTION_ENTRY(IDIV) \
+    INSTRUCTION_ENTRY(IMOD) \
+    \
+    INSTRUCTION_ENTRY(ISHL) \
+    INSTRUCTION_ENTRY(ISHR) \
+    INSTRUCTION_ENTRY(IAND) \
+    INSTRUCTION_ENTRY(IOR) \
+    INSTRUCTION_ENTRY(IXOR) 
+
 
 #define INSTRUCTION_ENTRY(x) x,
 enum class InstructionType {
@@ -363,6 +380,58 @@ public:
                     this->instruction_pointer += 1;
                 }
                 break;
+            case InstructionType::IBNEG:
+                {
+                    int64_t operand = this->pop_from_stack().get_content().as_int;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = ~operand }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+            case InstructionType::INEG:
+                {
+                    int64_t operand = this->pop_from_stack().get_content().as_int;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = -operand }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+            case InstructionType::FNEG:
+                {
+                    double operand = this->pop_from_stack().get_content().as_float;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_float = -operand }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+            case InstructionType::LNEG:
+                {
+                    int64_t operand = this->pop_from_stack().get_content().as_int;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = operand == 0 ? 1 : 0 }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+            
+#define BINARY_INT_INSTRUCTION(INST,OP) \
+            case InstructionType:: INST : \
+                { \
+                    int64_t second_operand = this->pop_from_stack().get_content().as_int; \
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int; \
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = first_operand OP second_operand })); \
+                    this->instruction_pointer += 1; \
+                } \
+                break; \
+
+            BINARY_INT_INSTRUCTION(IADD, +)
+            BINARY_INT_INSTRUCTION(ISUB, -)
+            BINARY_INT_INSTRUCTION(IMUL, *)
+            BINARY_INT_INSTRUCTION(IDIV, /) // TODO: Check for divide by zero
+            BINARY_INT_INSTRUCTION(IMOD, %)
+
+            BINARY_INT_INSTRUCTION(ISHL, <<)
+            BINARY_INT_INSTRUCTION(ISHR, >>)
+            BINARY_INT_INSTRUCTION(IAND, &)
+            BINARY_INT_INSTRUCTION(IOR, |)
+            BINARY_INT_INSTRUCTION(IXOR, ^)
+
+
             case InstructionType::HALT:
                 break;
             default:
