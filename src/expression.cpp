@@ -14,6 +14,7 @@ public:
 
     virtual void type_check(TypeChecker& type_checker) = 0;
     virtual bool is_lvalue() const = 0;
+    virtual void emit(CodeGenerator&) const = 0;
 
     std::shared_ptr<Type> get_type() const {
         return this->type;
@@ -94,6 +95,10 @@ public:
             std::exit(1);
         }
     }
+
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
     
     virtual bool is_lvalue() const override {
         return false;
@@ -116,7 +121,7 @@ public:
     }
     
     virtual void type_check(TypeChecker&) override {
-        switch (literal_token.get_type()) {
+        switch (this->literal_token.get_type()) {
             case TokenType::INT_LITERAL:
                 this->set_type(Type::INT);
                 break;
@@ -136,6 +141,60 @@ public:
             case TokenType::FALSE_KEYWORD:
             case TokenType::TRUE_KEYWORD:
                 this->set_type(Type::BOOL);
+                break;
+
+            default:
+                assert(false && "unreachable");
+        }
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        const std::string& literal_string = this->literal_token.get_text();
+        switch (this->literal_token.get_type()) {
+            case TokenType::INT_LITERAL:
+                {
+                    int64_t parsed;
+
+                    try {
+                        parsed = std::stol(literal_string);
+                    } catch(std::exception& e) {
+                        std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse integer literal '" << literal_string << "'." << std::endl;
+                        std::exit(1);
+                    }
+
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = parsed }));
+                }
+                break;
+            
+            case TokenType::STRING_LITERAL:
+                assert(false && "TODO");
+                break;
+
+            case TokenType::CHAR_LITERAL:
+                assert(false && "TODO");
+                break;
+            
+            case TokenType::FLOAT_LITERAL:
+                {
+                    double parsed;
+
+                    try {
+                        parsed = std::stod(literal_string);
+                    } catch(std::exception& e) {
+                        std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse float literal '" << literal_string << "'." << std::endl;
+                        std::exit(1);
+                    }
+
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_float = parsed }));
+                }
+                break;
+            
+            case TokenType::FALSE_KEYWORD:
+                code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
+                break;
+
+            case TokenType::TRUE_KEYWORD:
+                code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
                 break;
 
             default:
@@ -184,6 +243,10 @@ public:
         return this->variable_name;
     }
     
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return true;
     }
@@ -229,6 +292,10 @@ public:
         }
 
         this->set_type(accessed_type->get_field_type(field_name));
+    }
+    
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
     }
     
     // TODO: Maybe add notion of a constant/mutable field
@@ -321,6 +388,10 @@ public:
         }
     }
     
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -361,6 +432,10 @@ public:
             << operand_type->to_string()
             << ">." << std::endl;
         std::exit(1);
+    }
+    
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
     }
     
     virtual bool is_lvalue() const override {
@@ -415,6 +490,10 @@ public:
         }
     }
     
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -461,6 +540,10 @@ public:
         }
 
         this->set_type(inner_type);
+    }
+    
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
     }
 
     // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
@@ -519,6 +602,10 @@ public:
         }
         
         this->set_type(destination_type);
+    }
+    
+    virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
     }
     
     virtual bool is_lvalue() const override {

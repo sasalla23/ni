@@ -91,11 +91,16 @@ public:
     ~UnaryOperator() {}
 };
 
+#define UNARY_ARITHMETIC(T) \
+    UnaryOperator(TokenType::PLUS, T, T), \
+    UnaryOperator(TokenType::MINUS, T, T)
+
 UnaryOperator UnaryOperator::OPERATORS[] = {
     UnaryOperator(TokenType::TILDE, Type::INT, Type::INT),
-    UnaryOperator(TokenType::PLUS, Type::INT, Type::INT),
-    UnaryOperator(TokenType::MINUS, Type::INT, Type::INT),
-    
+
+    UNARY_ARITHMETIC(Type::INT),
+    UNARY_ARITHMETIC(Type::FLOAT),
+
     UnaryOperator(TokenType::BANG, Type::BOOL, Type::BOOL),
 };
 

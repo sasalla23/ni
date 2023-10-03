@@ -15,7 +15,9 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
 #include "tokenizer.cpp"
 #include "type.cpp"
 #include "type_annotation.cpp"
+#include "virtual_machine.cpp"
 #include "type_checker.cpp"
+#include "code_generator.cpp"
 #include "expression.cpp"
 #include "statement.cpp"
 #include "global_definition.cpp"
@@ -26,13 +28,25 @@ int main(void) {
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
 
-    auto global_definitions = parser.parse_file();
+    auto expression = parser.parse_expression();
+    
     TypeChecker type_checker;
+    expression->type_check(type_checker);
 
-    for (auto& global_definition : global_definitions) {
-        global_definition->type_check(type_checker);
-        std::cout << *global_definition;
-    }
+    CodeGenerator code_generator;
+    expression->emit(code_generator);
+
+    VirtualMachine virtual_machine(code_generator.get_program());
+    virtual_machine.execute();
+    virtual_machine.print_current_frame();
+
+    //auto global_definitions = parser.parse_file();
+    //TypeChecker type_checker;
+
+    //for (auto& global_definition : global_definitions) {
+    //    global_definition->type_check(type_checker);
+    //    std::cout << *global_definition;
+    //}
 
     return 0;
 }
