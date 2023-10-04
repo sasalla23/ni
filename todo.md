@@ -14,11 +14,12 @@
 - [x] type check statements 
 - [x] type check global definitions 
 - [x] fix invalid return values
+- [ ] fix generic stuff
 
 ## Code Generator / VM
 - [x] float operators
-- [ ] comparison operators / jumps
-- [ ] short circuit
+- [x] comparison operators / jumps
+- [x] short circuit
 - [ ] variables
 - [ ] assignments
 - [ ] member access

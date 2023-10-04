@@ -36,6 +36,7 @@ int main(void) {
 
     CodeGenerator code_generator;
     expression->emit(code_generator);
+    code_generator.finalize();
 
     VirtualMachine virtual_machine(std::move(code_generator.get_program()), std::move(code_generator.get_static_data()));
     virtual_machine.execute();

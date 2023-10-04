@@ -15,6 +15,7 @@ public:
     virtual void type_check(TypeChecker& type_checker) = 0;
     virtual bool is_lvalue() const = 0;
     virtual void emit(CodeGenerator&) const = 0;
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const = 0 ;
 
     std::shared_ptr<Type> get_type() const {
         return this->type;
@@ -40,6 +41,21 @@ class BinaryExpression : public Expression {
 private:
     std::unique_ptr<Expression> left, right;
     Token operator_token;
+
+    //bool is_comparison_operator() const {
+    //    switch (this->operator_token->get_type()) {
+    //        case TokenType::LESS:
+    //        case TokenType::LESS_EQUAL:
+    //        case TokenType::GREATER:
+    //        case TokenType::GREATER_EQUAL:
+    //        case TokenType::EQUAL_EQUAL:
+    //        case TokenType::BANG_EQUAL:
+    //            return true;
+    //        default:
+    //            return false;
+    //    }
+    //}
+
 public:
     BinaryExpression(std::unique_ptr<Expression> left, std::unique_ptr<Expression> right, const Token& operator_token) :
         Expression(left->get_location()),
@@ -97,12 +113,21 @@ public:
     }
 
     virtual void emit(CodeGenerator& code_generator) const override {
-        // assignment / short circuit operators are built different
-        bool is_special_operator = this->operator_token.get_type() == TokenType::EQUAL
-            || this->operator_token.get_type() == TokenType::AND_AND
-            || this->operator_token.get_type() == TokenType::PIPE_PIPE;
 
-        if (!is_special_operator) {
+        if (this->operator_token.get_type() == TokenType::EQUAL) {
+        } else if (this->get_type()->fits(Type::BOOL)) {
+            size_t false_label = code_generator.generate_label();
+            size_t true_label = code_generator.generate_label();
+            size_t end_label = code_generator.generate_label();
+            this->emit_condition(code_generator, false_label, true_label);
+            
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) true_label }));
+            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+            code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) end_label }));
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) false_label }));
+            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) end_label }));
+        } else {
             this->left->emit(code_generator);
             this->right->emit(code_generator);
             auto left_type = this->left->get_type();
@@ -164,9 +189,51 @@ public:
                 }
             }
 
-        } else {
-            assert(false && "TODO");
         }
+    }
+    
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        assert(this->get_type()->fits(Type::BOOL));
+
+        bool is_float = this->get_type()->fits(Type::FLOAT);
+
+        switch (this->operator_token.get_type()) {
+
+#define COMPARISON_INSTRUCTIONS(TOKEN_TYPE, INSTRUCTION_TYPE) \
+            case TokenType:: TOKEN_TYPE : \
+                this->left->emit(code_generator); \
+                this->right->emit(code_generator); \
+                code_generator.push_instruction(Instruction((INSTRUCTION_TYPE), Word { .as_int = (int64_t) jump_if_false })); \
+                code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); \
+                break;
+
+            COMPARISON_INSTRUCTIONS(EQUAL_EQUAL, InstructionType::JNEQ)
+            COMPARISON_INSTRUCTIONS(BANG_EQUAL, InstructionType::JEQ)
+            COMPARISON_INSTRUCTIONS(LESS, is_float ? InstructionType::JFGE : InstructionType::JIGE)
+            COMPARISON_INSTRUCTIONS(LESS_EQUAL, is_float ? InstructionType::JFGT : InstructionType::JIGT)
+            COMPARISON_INSTRUCTIONS(GREATER, is_float ? InstructionType::JFLE : InstructionType::JILE)
+            COMPARISON_INSTRUCTIONS(GREATER_EQUAL, is_float ? InstructionType::JFLT : InstructionType::JILT)
+
+            case TokenType::AND_AND:
+                {
+                    size_t mid_label = code_generator.generate_label();
+                    this->left->emit_condition(code_generator, jump_if_false, mid_label);
+                    code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) mid_label }));
+                    this->right->emit_condition(code_generator, jump_if_false, jump_if_true);
+                    break;
+                }
+            case TokenType::PIPE_PIPE:
+                {
+                    size_t mid_label = code_generator.generate_label();
+                    this->left->emit_condition(code_generator, mid_label, jump_if_true);
+                    code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) mid_label }));
+                    this->right->emit_condition(code_generator, jump_if_false, jump_if_true);
+                    break;
+                }
+            default:
+                assert(false && "unreachable");
+        }
+
     }
     
     virtual bool is_lvalue() const override {
@@ -369,6 +436,10 @@ public:
         }
     }
     
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -411,6 +482,10 @@ public:
     }
     
     virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
         assert(false && "TODO");
     }
     
@@ -462,6 +537,11 @@ public:
     }
     
     virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+   
+
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
         assert(false && "TODO");
     }
     
@@ -559,6 +639,10 @@ public:
         assert(false && "TODO");
     }
     
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -626,6 +710,10 @@ public:
         }
     }
     
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -682,6 +770,10 @@ public:
         assert(false && "TODO");
     }
     
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
+        assert(false && "TODO");
+    }
+    
     virtual bool is_lvalue() const override {
         return false;
     }
@@ -731,6 +823,10 @@ public:
     }
     
     virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
         assert(false && "TODO");
     }
 
@@ -793,6 +889,10 @@ public:
     }
     
     virtual void emit(CodeGenerator&) const override {
+        assert(false && "TODO");
+    }
+    
+    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
         assert(false && "TODO");
     }
     

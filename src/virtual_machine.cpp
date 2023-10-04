@@ -110,6 +110,7 @@ union Word {
     INSTRUCTION_ENTRY(PADD) \
     INSTRUCTION_ENTRY(SPTR) \
     INSTRUCTION_ENTRY(PRINT) \
+    \
     INSTRUCTION_ENTRY(IBNEG)  \
     INSTRUCTION_ENTRY(FNEG) \
     INSTRUCTION_ENTRY(INEG)  \
@@ -130,7 +131,22 @@ union Word {
     INSTRUCTION_ENTRY(FADD) \
     INSTRUCTION_ENTRY(FSUB) \
     INSTRUCTION_ENTRY(FMUL) \
-    INSTRUCTION_ENTRY(FDIV) 
+    INSTRUCTION_ENTRY(FDIV) \
+    \
+    INSTRUCTION_ENTRY(LABEL) \
+    INSTRUCTION_ENTRY(JUMP) \
+    INSTRUCTION_ENTRY(JNEQ) \
+    INSTRUCTION_ENTRY(JEQ) \
+    \
+    INSTRUCTION_ENTRY(JILT) \
+    INSTRUCTION_ENTRY(JILE) \
+    INSTRUCTION_ENTRY(JIGT) \
+    INSTRUCTION_ENTRY(JIGE) \
+    \
+    INSTRUCTION_ENTRY(JFLT) \
+    INSTRUCTION_ENTRY(JFLE) \
+    INSTRUCTION_ENTRY(JFGT) \
+    INSTRUCTION_ENTRY(JFGE)
 
 
 #define INSTRUCTION_ENTRY(x) x,
@@ -170,7 +186,15 @@ public:
     Word get_operand() const {
         return this->operand;
     }
+
+    void set_operand(Word operand) {
+        this->operand = operand;
+    }
 };
+
+std::ostream& operator<<(std::ostream& output_stream, const Instruction& instruction) {
+    return output_stream << instruction.get_type() << " " << instruction.get_operand().as_int;
+}
     
 enum class StackElementType {
     PRIMITIVE,
@@ -269,7 +293,11 @@ private:
 public:
     VirtualMachine(std::vector<Instruction> program, std::vector<char> static_memory)
         : allocated_objects(), call_stack(), operand_stack(), local_vars(), program(std::move(program)), static_memory(std::move(static_memory)), instruction_pointer(0)
-    {}
+    {
+        //for (const auto& instruction : this->program) {
+        //    std::cout << instruction << std::endl;
+        //}
+    }
 
     Instruction get_current_instruction() {
         if (this->instruction_pointer < this->program.size()) {
@@ -434,8 +462,146 @@ public:
             BINARY_FLOAT_INSTRUCTION(FSUB, -)
             BINARY_FLOAT_INSTRUCTION(FMUL, *)
             BINARY_FLOAT_INSTRUCTION(FDIV, /) // TODO: Check for divide by zero
+            
+            case InstructionType::JUMP:
+                {
+                    size_t location = (size_t) current_instruction.get_operand().as_int;
+                    this->instruction_pointer = location;
+                }
+                break;
+            
+            case InstructionType::JNEQ:
+                {
+                    Word second_operand = this->pop_from_stack().get_content();
+                    Word first_operand = this->pop_from_stack().get_content();
+                    if (first_operand.as_int != second_operand.as_int) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JEQ:
+                {
+                    Word second_operand = this->pop_from_stack().get_content();
+                    Word first_operand = this->pop_from_stack().get_content();
+                    if (first_operand.as_int == second_operand.as_int) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JILT:
+                {
+                    int64_t second_operand = this->pop_from_stack().get_content().as_int;
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int;
+                    if (first_operand < second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JILE:
+                {
+                    int64_t second_operand = this->pop_from_stack().get_content().as_int;
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int;
+                    if (first_operand <= second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JIGT:
+                {
+                    int64_t second_operand = this->pop_from_stack().get_content().as_int;
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int;
+                    if (first_operand > second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JIGE:
+                {
+                    int64_t second_operand = this->pop_from_stack().get_content().as_int;
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int;
+                    if (first_operand >= second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JFLT:
+                {
+                    double second_operand = this->pop_from_stack().get_content().as_float;
+                    double first_operand = this->pop_from_stack().get_content().as_float;
+                    if (first_operand < second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JFLE:
+                {
+                    double second_operand = this->pop_from_stack().get_content().as_float;
+                    double first_operand = this->pop_from_stack().get_content().as_float;
+                    if (first_operand <= second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JFGT:
+                {
+                    double second_operand = this->pop_from_stack().get_content().as_float;
+                    double first_operand = this->pop_from_stack().get_content().as_float;
+                    if (first_operand > second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
+            case InstructionType::JFGE:
+                {
+                    double second_operand = this->pop_from_stack().get_content().as_float;
+                    double first_operand = this->pop_from_stack().get_content().as_float;
+                    if (first_operand >= second_operand) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    }
+                }
+                break;
 
             case InstructionType::HALT:
+                break;
+            case InstructionType::LABEL:
+                this->instruction_pointer += 1;
                 break;
             default:
                 std::cerr << "Not implemented: " << current_instruction.get_type() << std::endl;
