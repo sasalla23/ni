@@ -115,6 +115,7 @@ public:
     virtual void emit(CodeGenerator& code_generator) const override {
 
         if (this->operator_token.get_type() == TokenType::EQUAL) {
+            assert(false && "TODO");
         } else if (this->get_type()->fits(Type::BOOL)) {
             size_t false_label = code_generator.generate_label();
             size_t true_label = code_generator.generate_label();
@@ -436,8 +437,18 @@ public:
         }
     }
     
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        assert(this->get_type()->fits(Type::BOOL));
+        size_t jump_address;
+        if (this->literal_token.get_type() == TokenType::FALSE_KEYWORD) {
+            jump_address = jump_if_false;
+        } else if (this->literal_token.get_type() == TokenType::TRUE_KEYWORD) {
+            jump_address = jump_if_true;
+        } else {
+            assert(false && "unreachable");
+        }
+
+        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_address }));
     }
     
     virtual bool is_lvalue() const override {
@@ -686,32 +697,52 @@ public:
     }
     
     virtual void emit(CodeGenerator& code_generator) const override {
-        this->operand->emit(code_generator); 
-        switch (this->operator_token.get_type()) {
-            case TokenType::TILDE:
-                code_generator.push_instruction(Instruction(InstructionType::IBNEG));
-                break;
-            case TokenType::PLUS:
-                break;
-            case TokenType::MINUS:
-                if (this->operand->get_type()->fits(Type::FLOAT)) {
-                    code_generator.push_instruction(Instruction(InstructionType::FNEG));
-                } else if (this->operand->get_type()->fits(Type::INT)) {
-                    code_generator.push_instruction(Instruction(InstructionType::INEG));
-                } else {
+        
+        if (this->get_type()->fits(Type::BOOL)) {
+            size_t false_label = code_generator.generate_label();
+            size_t true_label = code_generator.generate_label();
+            size_t end_label = code_generator.generate_label();
+            this->emit_condition(code_generator, false_label, true_label);
+            
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) true_label }));
+            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+            code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) end_label }));
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) false_label }));
+            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
+            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) end_label }));
+        } else {
+            this->operand->emit(code_generator); 
+            switch (this->operator_token.get_type()) {
+                case TokenType::TILDE:
+                    code_generator.push_instruction(Instruction(InstructionType::IBNEG));
+                    break;
+                case TokenType::PLUS:
+                    break;
+                case TokenType::MINUS:
+                    if (this->operand->get_type()->fits(Type::FLOAT)) {
+                        code_generator.push_instruction(Instruction(InstructionType::FNEG));
+                    } else if (this->operand->get_type()->fits(Type::INT)) {
+                        code_generator.push_instruction(Instruction(InstructionType::INEG));
+                    } else {
+                        assert(false && "unreachable");
+                    }
+                    break;
+                //case TokenType::BANG:
+                //    code_generator.push_instruction(Instruction(InstructionType::LNEG));
+                //    break;
+                default:
                     assert(false && "unreachable");
-                }
-                break;
-            case TokenType::BANG:
-                code_generator.push_instruction(Instruction(InstructionType::LNEG));
-                break;
-            default:
-                assert(false && "unreachable");
+            }
         }
     }
     
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        assert(this->get_type()->fits(Type::BOOL));
+        if (this->operator_token.get_type() == TokenType::BANG) {
+            this->operand->emit_condition(code_generator, jump_if_true, jump_if_false);
+        } else {
+            assert(false && "unreachable");
+        }
     }
     
     virtual bool is_lvalue() const override {
@@ -747,6 +778,11 @@ public:
 
             auto element_type = this->element_initializers[0]->get_type();
 
+            if (element_type->fits(Type::VOID)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: List cannot have content type void." << std::endl;
+                std::exit(1);
+            }
+
             for (size_t i = 1; i < this->element_initializers.size(); i++) {
                 auto& element = this->element_initializers[i];
                 if (!element->get_type()->fits(element_type)) {
@@ -762,6 +798,7 @@ public:
                     std::exit(1);
                 }
             }
+
             this->set_type(std::make_shared<ListType>(element_type));
         }
     }

@@ -309,7 +309,17 @@ public:
 
     void execute() {
         while (this->get_current_instruction().get_type() != InstructionType::HALT) {
+            //std::cout << "==================" << std::endl;
+            //for (size_t i = 0; i < this->program.size(); i++) {
+            //    std::cout << (i == this->instruction_pointer ? "> " : "  ") << i << ": " << this->program[i] << std::endl;
+            //}
+            //
+            //std::cout << "==================" << std::endl;
+
+            //this->print_current_frame();
             execute_instruction();
+            //std::string s;
+            //std::cin >> s;
         }
 
         for (auto& object : this->allocated_objects) {

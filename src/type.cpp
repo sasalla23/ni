@@ -10,6 +10,7 @@
 class Type {
     friend class PrimitiveType;
     friend class ListType;
+    friend class GenericType;
 protected:
     enum class TypeType {
         LIST,
@@ -120,6 +121,7 @@ std::ostream& operator<<(std::ostream& output_stream, const Primitive& primitive
 #undef PRIMITIVE_ENTRY
 
 class PrimitiveType : public Type {
+friend class GenericType;
 private:
     Primitive primitive_type;
 public:
@@ -138,7 +140,7 @@ public:
     }
     
     virtual bool fits(std::shared_ptr<Type> other) const override {
-        if (other->type_type == Type::TypeType::GENERIC) return true;
+        if (other->type_type == Type::TypeType::GENERIC && this->primitive_type != Primitive::VOID) return true;
         if (other->type_type == Type::TypeType::PRIMITIVE) {
             return this->primitive_type == dynamic_cast<PrimitiveType*>(other.get())->primitive_type;
         } else {
@@ -161,7 +163,13 @@ public:
         return "GENERIC";
     }
 
-    virtual bool fits(std::shared_ptr<Type>) const override {
+    virtual bool fits(std::shared_ptr<Type> other_type) const override {
+        if (other_type->type_type == Type::TypeType::PRIMITIVE) {
+            auto other_primitive_type = dynamic_cast<PrimitiveType*>(other_type.get())->primitive_type;
+            if (other_primitive_type == Primitive::VOID) {
+                return false;
+            }
+        }
         return true;
     }
 

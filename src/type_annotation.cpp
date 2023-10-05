@@ -59,6 +59,13 @@ public:
     }
 
     virtual std::shared_ptr<Type> to_type() const override {
+        auto parsed_inner_type = this->inner_type->to_type();
+        
+        if (parsed_inner_type->fits(Type::VOID)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: List cannot have content type void." << std::endl;
+            std::exit(1);
+        }
+
         return std::make_shared<ListType>(this->inner_type->to_type());
     }
 
