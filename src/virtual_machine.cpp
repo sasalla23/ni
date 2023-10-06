@@ -110,6 +110,8 @@ union Word {
     INSTRUCTION_ENTRY(PADD) \
     INSTRUCTION_ENTRY(SPTR) \
     INSTRUCTION_ENTRY(PRINT) \
+    INSTRUCTION_ENTRY(VLOAD) \
+    INSTRUCTION_ENTRY(VWRITE) \
     \
     INSTRUCTION_ENTRY(IBNEG)  \
     INSTRUCTION_ENTRY(FNEG) \
@@ -137,6 +139,7 @@ union Word {
     INSTRUCTION_ENTRY(JUMP) \
     INSTRUCTION_ENTRY(JNEQ) \
     INSTRUCTION_ENTRY(JEQ) \
+    INSTRUCTION_ENTRY(JEQZ) \
     \
     INSTRUCTION_ENTRY(JILT) \
     INSTRUCTION_ENTRY(JILE) \
@@ -348,6 +351,32 @@ public:
         }
     }
 
+    StackElement get_variable(size_t id) const {
+        size_t offset;
+        if (this->call_stack.size() > 0) {
+            offset = call_stack.back().get_local_var_offset();
+        } else {
+            offset = 0;
+        }
+        return this->local_vars[offset + id];
+    }
+    
+    void set_variable(size_t id, StackElement value){
+        size_t offset;
+        if (this->call_stack.size() > 0) {
+            offset = call_stack.back().get_local_var_offset();
+        } else {
+            offset = 0;
+        }
+
+        size_t index = offset + id;
+        if (index >= this->local_vars.size()) {
+            this->local_vars.resize(index+1, StackElement(StackElementType::PRIMITIVE, Word { .as_int = 0 }));
+        }
+
+        this->local_vars[index] = value;
+    }
+
     void execute_instruction() {
         const Instruction& current_instruction = this->get_current_instruction();
         switch (current_instruction.get_type()) {
@@ -506,6 +535,18 @@ public:
                 }
                 break;
             
+            case InstructionType::JEQZ:
+                {
+                    int64_t first_operand = this->pop_from_stack().get_content().as_int;
+                    if (first_operand == 0) {
+                        size_t location = (size_t) current_instruction.get_operand().as_int;
+                        this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
+                    }
+                }
+                break;
+            
             case InstructionType::JILT:
                 {
                     int64_t second_operand = this->pop_from_stack().get_content().as_int;
@@ -604,7 +645,27 @@ public:
                     if (first_operand >= second_operand) {
                         size_t location = (size_t) current_instruction.get_operand().as_int;
                         this->instruction_pointer = location;
+                    } else {
+                        this->instruction_pointer += 1;
                     }
+                }
+                break;
+            
+            case InstructionType::VLOAD:
+                {
+                    size_t id = (size_t)current_instruction.get_operand().as_int;
+                    StackElement variable_value = this->get_variable(id);
+                    this->push_on_stack(variable_value);
+                    this->instruction_pointer += 1;
+                }
+                break;
+            
+            case InstructionType::VWRITE:
+                {
+                    size_t id = (size_t)current_instruction.get_operand().as_int;
+                    StackElement new_value = this->pop_from_stack();
+                    this->set_variable(id, new_value);
+                    this->instruction_pointer += 1;
                 }
                 break;
 

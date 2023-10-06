@@ -130,11 +130,16 @@ public:
 class VariableSymbol : public Symbol {
 private:
     std::shared_ptr<Type> type;
+    size_t id;
 public:
-    VariableSymbol(size_t layer, std::shared_ptr<Type> type) : Symbol(layer, SymbolType::VARIABLE), type(type) {}
+    VariableSymbol(size_t layer, std::shared_ptr<Type> type, size_t id) : Symbol(layer, SymbolType::VARIABLE), type(type), id(id) {}
 
     std::shared_ptr<Type> get_type() const {
         return this->type;
+    }
+
+    size_t get_id() const {
+        return this->id;
     }
 
     ~VariableSymbol() {}
@@ -180,12 +185,14 @@ private:
     size_t current_layer;
     size_t while_statement_layer = 0;
     std::shared_ptr<Type> current_return_type;
+    size_t variable_count;
 public:
     static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
 
-    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0), current_return_type(Type::NO) {
-        this->symbol_table["print"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
-        this->symbol_table["print_line"] = std::make_unique<FunctionSymbol>(this->current_layer, Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0), current_return_type(Type::NO), variable_count(0) {
+        this->add_function_symbol("print", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+        this->add_function_symbol("print_line", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+        //this->add_variable_symbol("x", Type::INT);
     }
 
     std::shared_ptr<Type> get_current_return_type() const {
@@ -207,7 +214,8 @@ public:
     }
 
     void add_variable_symbol(const std::string& name, std::shared_ptr<Type> variable_type) {
-        this->symbol_table[name] = std::make_unique<VariableSymbol>(this->current_layer, variable_type);
+        this->symbol_table[name] = std::make_unique<VariableSymbol>(this->current_layer, variable_type, this->variable_count);
+        this->variable_count += 1;
     }
     
     void add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {
@@ -234,18 +242,23 @@ public:
     void pop_scope() {
         assert(this->current_layer > 0);
         std::vector<std::string> to_remove;
+        size_t removed_variables = 0;
+
         for (const auto& symbol_entry : this->symbol_table) {
             if (symbol_entry.second->get_layer() == this->current_layer) {
+                if (symbol_entry.second->get_symbol_type() == SymbolType::VARIABLE) {
+                    removed_variables += 1;
+                }
                 to_remove.push_back(symbol_entry.first);
             }
         }
         
-        for (const auto& popped_symbols : to_remove) {
-            this->symbol_table.erase(popped_symbols);
+        for (const auto& popped_symbol : to_remove) {
+            this->symbol_table.erase(popped_symbol);
         }
 
+        this->variable_count -= removed_variables;
         this->current_layer -= 1;
-
     }
 
     ~TypeChecker() {}

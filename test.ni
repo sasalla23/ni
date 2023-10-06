@@ -1,1 +1,1 @@
-!(true && false) == (!true || !false)
+x = 12 

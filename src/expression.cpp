@@ -37,6 +37,63 @@ std::ostream& operator<<(std::ostream& output_stream, const Expression& expressi
     return output_stream;
 }
 
+class VariableExpression : public Expression {
+private:
+    Token variable_name;
+    size_t id;
+public:
+    VariableExpression(const Token& variable_name)
+        : Expression(variable_name.get_location()), variable_name(variable_name), id(0)
+    {}
+    
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        const std::string& name_string = this->variable_name.get_text();
+        if (!type_checker.symbol_exists(name_string)) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Undefined reference to variable '" << name_string << "'." << std::endl;
+            std::exit(1);
+        }
+
+        const auto& symbol = type_checker.get_symbol(name_string);
+        if (symbol->get_symbol_type() != SymbolType::VARIABLE) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' is not a variable." << std::endl;
+            std::exit(1);
+        }
+
+        const auto& variable_symbol = *dynamic_cast<VariableSymbol *>(symbol.get());
+        this->id = variable_symbol.get_id();
+        this->set_type(variable_symbol.get_type());
+    }
+
+    const Token& get_variable_name() {
+        return this->variable_name;
+    }
+
+    size_t get_id() const {
+        return this->id;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        code_generator.push_instruction(Instruction(InstructionType::VLOAD, Word { .as_int = (int64_t)this->id }));
+    }
+    
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
+        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
+    }
+    
+    virtual bool is_lvalue() const override {
+        return true;
+    }
+
+    ~VariableExpression() {}
+};
+
 class BinaryExpression : public Expression {
 private:
     std::unique_ptr<Expression> left, right;
@@ -113,9 +170,18 @@ public:
     }
 
     virtual void emit(CodeGenerator& code_generator) const override {
-
         if (this->operator_token.get_type() == TokenType::EQUAL) {
-            assert(false && "TODO");
+            auto as_variable_expression = dynamic_cast<VariableExpression *>(this->left.get());
+            if (as_variable_expression != nullptr) {
+                size_t id = as_variable_expression->get_id();
+                assert(!this->right->get_type()->fits(Type::VOID));
+
+                this->right->emit(code_generator);
+                code_generator.push_instruction(Instruction(InstructionType::DUP));
+                code_generator.push_instruction(Instruction(InstructionType::VWRITE, Word { .as_int = (int64_t) id }));
+            } else {
+                assert(false && "TODO");
+            }
         } else if (this->get_type()->fits(Type::BOOL)) {
             size_t false_label = code_generator.generate_label();
             size_t true_label = code_generator.generate_label();
@@ -440,6 +506,7 @@ public:
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
         assert(this->get_type()->fits(Type::BOOL));
         size_t jump_address;
+
         if (this->literal_token.get_type() == TokenType::FALSE_KEYWORD) {
             jump_address = jump_if_false;
         } else if (this->literal_token.get_type() == TokenType::TRUE_KEYWORD) {
@@ -458,54 +525,6 @@ public:
     ~LiteralExpression() {}
 };
 
-class VariableExpression : public Expression {
-private:
-    Token variable_name;
-public:
-    VariableExpression(const Token& variable_name)
-        : Expression(variable_name.get_location()), variable_name(variable_name) 
-    {}
-    
-    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
-        indent_layer(output_stream, layer);
-        output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
-    }
-    
-    virtual void type_check(TypeChecker& type_checker) override {
-        const std::string& name_string = this->variable_name.get_text();
-        if (!type_checker.symbol_exists(name_string)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Undefined reference to variable '" << name_string << "'." << std::endl;
-            std::exit(1);
-        }
-
-        const auto& symbol = type_checker.get_symbol(name_string);
-        if (symbol->get_symbol_type() != SymbolType::VARIABLE) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' is not a variable." << std::endl;
-            std::exit(1);
-        }
-
-        const auto& variable_symbol = *dynamic_cast<VariableSymbol *>(symbol.get());
-        this->set_type(variable_symbol.get_type());
-    }
-
-    const Token& get_variable_name() {
-        return this->variable_name;
-    }
-    
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
-    }
-    
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
-    }
-    
-    virtual bool is_lvalue() const override {
-        return true;
-    }
-
-    ~VariableExpression() {}
-};
 
 class MemberAccessExpression : public Expression {
 friend class CallExpression;

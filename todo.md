@@ -20,11 +20,11 @@
 - [x] float operators
 - [x] comparison operators / jumps
 - [x] short circuit
-- [ ] variables
-- [ ] assignments
+- [x] variables
+- [x] assignments
+- [ ] lists / indexing
 - [ ] member access
 - [ ] function calls 
-- [ ] lists / indexing
 - [ ] type casts
 - [ ] garbage collector
 - [ ] variable definitions
