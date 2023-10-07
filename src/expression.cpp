@@ -448,7 +448,8 @@ public:
                     code_generator.push_instruction(Instruction(InstructionType::DUP));
                     // offset pointer to the data field of the string object
                     // - push offset (in this case there is one word before the data pointer)
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)sizeof(Word) }));
+                    size_t data_offset = Type::STRING->get_field("data")->get_alignment();
+                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)data_offset }));
                     // - use pointer add instruction to offset the pointer
                     code_generator.push_instruction(Instruction(InstructionType::PADD));
                     // - get the absolute pointer to the string data in the static memory
@@ -611,8 +612,10 @@ public:
     }
    
 
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
+        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
     }
     
     // TODO: Maybe add notion of a constant/mutable field
@@ -814,6 +817,7 @@ public:
 class ListLiteralExpression : public Expression {
 private:
     std::vector<std::unique_ptr<Expression>> element_initializers;
+    std::shared_ptr<Type> inner_type;
 public:
     ListLiteralExpression(const Location& start_location, std::vector<std::unique_ptr<Expression>> element_initializers)
         : Expression(start_location), element_initializers(std::move(element_initializers))
@@ -859,15 +863,80 @@ public:
             }
 
             this->set_type(std::make_shared<ListType>(element_type));
+            this->inner_type = element_type;
         }
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        if (this->get_type()->is_generic()) {
+            std::cerr << this->get_location() << ": GENERERATION_ERROR: Inner type of list is not known at compile time (try type casting the list initializer)." << std::endl;
+            std::exit(1);
+        }
+
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+        code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = LIST_LAYOUT }));
+
+        auto list_type = this->get_type();
+        size_t length_offset = list_type->get_field("length")->get_alignment();
+        size_t capacity_offset = list_type->get_field("capacity")->get_alignment();
+        size_t data_offset = list_type->get_field("data")->get_alignment();
+
+        // Write initial length
+        size_t init_length = this->element_initializers.size();
+        code_generator.push_instruction(Instruction(InstructionType::DUP));
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) length_offset }));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_length }));
+        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+
+        size_t init_capacity = init_length * 2;
+        
+        // Write initial capacity
+        code_generator.push_instruction(Instruction(InstructionType::DUP));
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) capacity_offset }));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_capacity }));
+        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+        
+        code_generator.push_instruction(Instruction(InstructionType::DUP));
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) data_offset }));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        
+        size_t element_layout;
+        
+        if (this->inner_type->is_object()) {
+            element_layout = POINTER_LAYOUT;
+        } else {
+            element_layout = this->inner_type->get_layout_index();
+        }
+        
+        size_t element_size = ObjectLayout::predefined_layouts[element_layout]->get_size();
+
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_capacity }));
+        code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = (int64_t) element_layout }));
+
+        for (size_t i = 0; i < this->element_initializers.size(); i++) {
+            code_generator.push_instruction(Instruction(InstructionType::DUP));
+            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) (i * element_size) }));
+            code_generator.push_instruction(Instruction(InstructionType::PADD));
+            this->element_initializers[i]->emit(code_generator);
+            switch (element_size) {
+                case sizeof(char): // bytes
+                    code_generator.push_instruction(Instruction(InstructionType::WRITEB));
+                    break;
+                case sizeof(Word):
+                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                    break;
+                default:
+                    assert(false && "not implemented");
+            }
+        }
+        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+
     }
     
     virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+        assert(false && "unreachable");
     }
     
     virtual bool is_lvalue() const override {
@@ -968,8 +1037,10 @@ public:
         }
     }
     
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
+        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
     }
 
     // TODO: Make this more general (strings are immutable; this should probably be handled like fields)

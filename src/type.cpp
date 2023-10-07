@@ -61,6 +61,7 @@ public:
     virtual bool is_generic() const = 0;
     virtual bool is_object() const = 0;
     virtual size_t get_size() const = 0;
+    virtual size_t get_layout_index() const = 0;
 
     bool has_field(const std::string& field_name) const {
         return this->fields.contains(field_name);
@@ -87,7 +88,7 @@ public:
         std::vector<size_t> object_offsets;
 
         for (const auto& field : this->fields) {
-            if (field.second->get_type()->is_object()) {
+            if (field.first[0] != '@' && field.second->get_type()->is_object()) {
                 object_offsets.push_back(field.second->get_alignment());
             }
         }
@@ -97,6 +98,20 @@ public:
 
     virtual ~Type() {}
 };
+
+#define PRIMITIVE_ENTRY(x) x##_LAYOUT,
+enum PredefinedLayouts {
+    LIST_LAYOUT = 0,
+    POINTER_LAYOUT,
+    PRIMITIVE_LIST
+    //PREDEFINED_LAYOUT_COUNT
+};
+#undef PRIMITIVE_ENTRY
+
+// Predefined object layouts
+// -> P = Primitive
+// -> O = Object
+
 
 class NoType : public Type {
 public:
@@ -119,6 +134,10 @@ public:
     }
 
     virtual size_t get_size() const override {
+        assert(false && "unreachable");
+    }
+    
+    virtual size_t get_layout_index() const override {
         assert(false && "unreachable");
     }
 
@@ -152,6 +171,10 @@ public:
 
     virtual size_t get_size() const override {
         return this->size;
+    }
+    
+    virtual size_t get_layout_index() const override {
+        assert(false && "unreachable");
     }
 };
 
@@ -200,6 +223,10 @@ public:
 
     virtual size_t get_size() const override {
         return sizeof(Word) * 3;
+    }
+    
+    virtual size_t get_layout_index() const override {
+        return LIST_LAYOUT;
     }
 
     ~ListType() {}
@@ -277,18 +304,29 @@ public:
                 return sizeof(int64_t);
             case Primitive::CHAR:
                 return sizeof(char);
-            case Primitive::VOID:
-                assert(false && "unreachable");
             case Primitive::STRING:
                 return sizeof(int64_t) + sizeof(Word); 
             case Primitive::FLOAT:
                 return sizeof(double);
             case Primitive::BOOL:
                 return sizeof(bool);
+            case Primitive::VOID:
+                return 0;
             default:
                 assert(false && "unreachable");
         }
     }
+
+#define PRIMITIVE_ENTRY(x) case Primitive:: x : return x##_LAYOUT;
+
+    virtual size_t get_layout_index() const override {
+        switch(this->primitive_type) {
+            PRIMITIVE_LIST
+            default:
+                assert(false && "unreachable");
+        }
+    }
+#undef PRIMITIVE_ENTRY
     
     ~PrimitiveType() {}
 };
@@ -324,6 +362,10 @@ public:
     virtual size_t get_size() const override {
         assert(false && "unreachable");
     }
+    
+    virtual size_t get_layout_index() const override {
+        assert(false && "unreachable");
+    }
 
     ~GenericType() {}
 };
@@ -333,3 +375,11 @@ PRIMITIVE_LIST
 #undef PRIMITIVE_ENTRY
 std::shared_ptr<Type> Type::NO = std::make_shared<NoType>();
 std::shared_ptr<Type> Type::GENERIC = std::make_shared<GenericType>();
+
+#define PRIMITIVE_ENTRY(x) Type:: x ->get_layout(),
+std::shared_ptr<ObjectLayout> ObjectLayout::predefined_layouts[] = {
+    ListType(Type::GENERIC).get_layout(), // LIST_LAYOUT
+    std::make_shared<ObjectLayout>(sizeof(Word), std::vector<size_t> { 0 }),
+    PRIMITIVE_LIST
+};
+#undef PRIMITIVE_ENTRY

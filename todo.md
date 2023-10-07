@@ -22,8 +22,8 @@
 - [x] short circuit
 - [x] variables
 - [x] assignments
-- [ ] lists / indexing
-- [ ] member access
+- [x] lists / indexing
+- [x] member access
 - [ ] function calls 
 - [ ] type casts
 - [ ] garbage collector

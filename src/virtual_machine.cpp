@@ -223,11 +223,6 @@ public:
 };
 
 
-enum PredefinedLayouts {
-    CHAR_LAYOUT = 0,
-    STRING_LAYOUT,
-    PREDEFINED_LAYOUT_COUNT
-};
 
 class ObjectLayout {
 private:
@@ -245,20 +240,6 @@ public:
 };
 
 
-// Predefined object layouts
-// -> P = Primitive
-// -> O = Object
-
-std::shared_ptr<ObjectLayout> ObjectLayout::predefined_layouts[] = {
-    // Char
-    // P # -- 1 byte char
-    /*[CHAR_LAYOUT] = */ std::make_shared<ObjectLayout>(sizeof(char), std::vector<size_t> {}),
-
-    // String
-    // P ######## -- 8 byte size
-    // O ######## -- 8 byte pointer to string data
-    /*[STRING_LAYOUT] = */ std::make_shared<ObjectLayout>(sizeof(Word) * 2, std::vector<size_t> { 1 * sizeof(Word) }),
-};
 
 class AllocatedObject {
 private:
