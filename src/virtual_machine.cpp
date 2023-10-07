@@ -233,11 +233,12 @@ public:
         : size(size), object_offsets(std::move(object_offsets))
     {}
 
-    static std::shared_ptr<ObjectLayout> predefined_layouts[PREDEFINED_LAYOUT_COUNT];
+    static std::shared_ptr<ObjectLayout> predefined_layouts[];
 
     size_t get_size() const { return this->size; }
     const std::vector<size_t>& get_object_offsets() const { return this->object_offsets; }
 };
+
 
 // Predefined object layouts
 // -> P = Primitive

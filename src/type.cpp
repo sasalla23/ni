@@ -7,6 +7,29 @@
     PRIMITIVE_ENTRY(FLOAT) \
     PRIMITIVE_ENTRY(BOOL) \
 
+class Type;
+
+enum class FieldAccess {
+    INTERNAL,
+    READ,
+    READ_WRITE,
+};
+
+class Field {
+private:
+    FieldAccess access;
+    std::shared_ptr<Type> type;
+    size_t alignment; // alignment in bytes
+public:
+    Field(FieldAccess access, std::shared_ptr<Type> type, size_t alignment)
+        : access(access), type(type), alignment(alignment)
+    {}
+
+    FieldAccess get_access() const { return this->access; }
+    std::shared_ptr<Type> get_type() const { return this->type; }
+    size_t get_alignment() const { return this->alignment; }
+};
+
 class Type {
     friend class PrimitiveType;
     friend class ListType;
@@ -16,11 +39,12 @@ protected:
         LIST,
         PRIMITIVE,
         GENERIC,
+        INTERNAL,
         NO_TYPE
     };
 
     TypeType type_type;
-    std::unordered_map<std::string, std::shared_ptr<Type>> fields;
+    std::unordered_map<std::string, std::unique_ptr<Field>> fields;
 
 public:
     Type(TypeType type_type) : type_type(type_type) {}
@@ -35,13 +59,40 @@ public:
     virtual std::string to_string() const = 0;
     virtual bool fits(std::shared_ptr<Type> other) const = 0;
     virtual bool is_generic() const = 0;
+    virtual bool is_object() const = 0;
+    virtual size_t get_size() const = 0;
 
     bool has_field(const std::string& field_name) const {
         return this->fields.contains(field_name);
     }
 
-    std::shared_ptr<Type> get_field_type(const std::string& field_name) const {
+    const std::unique_ptr<Field>& get_field(const std::string& field_name) const {
         return this->fields.at(field_name);
+    }
+
+    void add_field(const std::string& field_name, FieldAccess access, std::shared_ptr<Type> type, size_t& current_alignment) {
+        this->fields[field_name] = std::make_unique<Field>(access, type, current_alignment);
+        if (type->is_object()) {
+            current_alignment += sizeof(Word);
+        } else {
+            current_alignment += type->get_size();
+        }
+    }
+
+    void add_index_field(const std::string& index_field_name, FieldAccess access, std::shared_ptr<Type> type) {
+        this->fields["@index"] = std::make_unique<Field>(access, type, this->fields[index_field_name]->get_alignment());
+    }
+
+    std::shared_ptr<ObjectLayout> get_layout() const {
+        std::vector<size_t> object_offsets;
+
+        for (const auto& field : this->fields) {
+            if (field.second->get_type()->is_object()) {
+                object_offsets.push_back(field.second->get_alignment());
+            }
+        }
+
+        return std::make_shared<ObjectLayout>(this->get_size(), std::move(object_offsets));
     }
 
     virtual ~Type() {}
@@ -56,24 +107,70 @@ public:
     }
 
     virtual bool fits(std::shared_ptr<Type>) const override {
-        return false;
+        assert(false && "unreachable");
     }
 
     virtual bool is_generic() const override {
-        return false;
+        assert(false && "unreachable");
+    }
+
+    virtual bool is_object() const override {
+        assert(false && "unreachable");
+    }
+
+    virtual size_t get_size() const override {
+        assert(false && "unreachable");
     }
 
     virtual ~NoType() {}
 };
 
+class InternalType : public Type {
+private:
+    size_t size;
+    bool is_object_flag;
+public:
+    InternalType(size_t size, bool is_object_flag)
+        : Type(Type::TypeType::INTERNAL), size(size), is_object_flag(is_object_flag)
+    {}
+
+    virtual std::string to_string() const override {
+        return "INTERNAL";
+    }
+
+    virtual bool fits(std::shared_ptr<Type>) const override {
+        assert(false && "unreachable");
+    }
+
+    virtual bool is_generic() const override {
+        assert(false && "unreachable");
+    }
+
+    virtual bool is_object() const override {
+        return this->is_object_flag;
+    }
+
+    virtual size_t get_size() const override {
+        return this->size;
+    }
+};
+
 class ListType : public Type {
 private:
     std::shared_ptr<Type> inner_type;
+    static std::shared_ptr<Type> internal_array_type;
 public:
     ListType(std::shared_ptr<Type> inner_type)
         : Type(Type::TypeType::LIST), inner_type(inner_type)
     {
-        this->fields["length"] = Type::INT;
+        // ######## -- length: int
+        // ######## -- capacity: int
+        // ######## -- data: pointer(array)
+        size_t alignment = 0;
+        this->add_field("length", FieldAccess::READ, Type::INT, alignment);
+        this->add_field("capacity", FieldAccess::INTERNAL, Type::INT, alignment);
+        this->add_field("data", FieldAccess::INTERNAL, internal_array_type, alignment);
+        this->add_index_field("data", FieldAccess::READ_WRITE, inner_type);
     }
 
     virtual std::string to_string() const override {
@@ -97,8 +194,18 @@ public:
         return this->inner_type->is_generic();
     }
 
+    virtual bool is_object() const override {
+        return true;
+    }
+
+    virtual size_t get_size() const override {
+        return sizeof(Word) * 3;
+    }
+
     ~ListType() {}
 };
+
+std::shared_ptr<Type> ListType::internal_array_type = std::make_shared<InternalType>(0, true);
 
 
 #define PRIMITIVE_ENTRY(x) x,
@@ -124,12 +231,16 @@ class PrimitiveType : public Type {
 friend class GenericType;
 private:
     Primitive primitive_type;
+    static std::shared_ptr<Type> internal_array_type;
 public:
     PrimitiveType(Primitive primitive_type)
         : Type(Type::TypeType::PRIMITIVE), primitive_type(primitive_type)
     {
         if (primitive_type == Primitive::STRING) {
-            this->fields["length"] = Type::INT;
+            size_t alignment = 0;
+            this->add_field("length", FieldAccess::READ, Type::INT, alignment);
+            this->add_field("data", FieldAccess::INTERNAL, internal_array_type, alignment);
+            this->add_index_field("data", FieldAccess::READ, Type::CHAR);
         }
     }
 
@@ -152,8 +263,37 @@ public:
         return false;
     }
     
+    virtual bool is_object() const override {
+        if (this->primitive_type == Primitive::STRING) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    virtual size_t get_size() const override {
+        switch(this->primitive_type) {
+            case Primitive::INT:
+                return sizeof(int64_t);
+            case Primitive::CHAR:
+                return sizeof(char);
+            case Primitive::VOID:
+                assert(false && "unreachable");
+            case Primitive::STRING:
+                return sizeof(int64_t) + sizeof(Word); 
+            case Primitive::FLOAT:
+                return sizeof(double);
+            case Primitive::BOOL:
+                return sizeof(bool);
+            default:
+                assert(false && "unreachable");
+        }
+    }
+    
     ~PrimitiveType() {}
 };
+
+std::shared_ptr<Type> PrimitiveType::internal_array_type = std::make_shared<InternalType>(0, true);
 
 class GenericType : public Type {
 public:
@@ -175,6 +315,14 @@ public:
 
     virtual bool is_generic() const override {
         return true;
+    }
+
+    virtual bool is_object() const override {
+        assert(false && "unreachable");
+    }
+
+    virtual size_t get_size() const override {
+        assert(false && "unreachable");
     }
 
     ~GenericType() {}

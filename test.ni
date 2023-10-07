@@ -1,1 +1,1 @@
-x = 12 
+"Hello, World"[0]

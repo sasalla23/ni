@@ -531,6 +531,7 @@ friend class CallExpression;
 private:
     std::unique_ptr<Expression> accessed;
     Token member_name;
+    bool is_writable;
 public:
     MemberAccessExpression(std::unique_ptr<Expression> accessed, const Token& member_name)
         : Expression(accessed->get_location()), accessed(std::move(accessed)), member_name(member_name)
@@ -563,7 +564,21 @@ public:
             std::exit(1);
         }
 
-        this->set_type(accessed_type->get_field_type(field_name));
+        const auto& field = accessed_type->get_field(field_name);
+        this->is_writable = field->get_access() == FieldAccess::READ_WRITE;
+        if (field->get_access() == FieldAccess::READ || this->is_writable) {
+            this->set_type(field->get_type());
+        } else {
+            std::cerr <<
+                this->get_location() <<
+                ": TYPE_ERROR: Type <" <<
+                accessed_type->to_string() <<
+                "> does not have a field '" <<
+                field_name <<
+                "'." <<
+                std::endl;
+            std::exit(1);
+        }
     }
     
     virtual void emit(CodeGenerator&) const override {
@@ -577,7 +592,7 @@ public:
     
     // TODO: Maybe add notion of a constant/mutable field
     virtual bool is_lvalue() const override {
-        return false;
+        return this->is_writable;
     }
 
     ~MemberAccessExpression() {}
@@ -841,9 +856,10 @@ class IndexingExpression : public Expression {
 private:
     std::unique_ptr<Expression> operand;
     std::unique_ptr<Expression> index;
+    bool is_writable;
 public:
     IndexingExpression(std::unique_ptr<Expression> operand, std::unique_ptr<Expression> index)
-        : Expression(operand->get_location()), operand(std::move(operand)), index(std::move(index))
+        : Expression(operand->get_location()), operand(std::move(operand)), index(std::move(index)), is_writable(false)
     {}
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
@@ -858,24 +874,37 @@ public:
 
         // TODO: Maybe create global constant for generic lists
         auto operand_type = this->operand->get_type();
-        auto inner_type = Type::NO;
-        if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
-            auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
-            inner_type = operand_type_as_list_type->get_inner_type();
-        } else if (operand_type->fits(Type::STRING)) {
-            inner_type = Type::CHAR;
+        //auto inner_type = Type::NO;
+        //if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
+        //    auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
+        //    inner_type = operand_type_as_list_type->get_inner_type();
+        //} else if (operand_type->fits(Type::STRING)) {
+        //    inner_type = Type::CHAR;
+        //} else {
+        //    std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
+        //    std::exit(1);
+        //}
+
+        if (!operand_type->has_field("@index")) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
+            std::exit(1);
+        }
+
+        const auto& field = operand_type->get_field("@index");
+        auto inner_type = field->get_type();
+        this->is_writable = field->get_access() == FieldAccess::READ_WRITE;
+        
+        if (field->get_access() == FieldAccess::READ || this->is_writable) {
+            this->index->type_check(type_checker);
+            if (!this->index->get_type()->fits(Type::INT)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
+                std::exit(1);
+            }
+            this->set_type(inner_type);
         } else {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
             std::exit(1);
         }
-
-        this->index->type_check(type_checker);
-        if (!this->index->get_type()->fits(Type::INT)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
-            std::exit(1);
-        }
-
-        this->set_type(inner_type);
     }
     
     virtual void emit(CodeGenerator&) const override {
@@ -888,7 +917,7 @@ public:
 
     // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
     virtual bool is_lvalue() const override {
-        return this->operand->is_lvalue() && !this->operand->get_type()->fits(Type::STRING);
+        return this->is_writable;
     }
 
     ~IndexingExpression() {}
