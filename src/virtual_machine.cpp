@@ -72,7 +72,7 @@ union Word {
 //    SETVAR, // Set local var count
 //
 //    // Heap read/write
-//    HREAD,
+//    READW [is object]
 //    WRITEW, stack: ... [pointer] [value]
 //    HALLOC [object layout], stack: ... [count]
 //    HREALLOC,
@@ -103,10 +103,15 @@ union Word {
 
 #define INSTRUCTION_TYPE_LIST \
     INSTRUCTION_ENTRY(HALT) \
+    \
     INSTRUCTION_ENTRY(PUSH) \
-    INSTRUCTION_ENTRY(HALLOC) \
     INSTRUCTION_ENTRY(DUP) \
+    \
+    INSTRUCTION_ENTRY(HALLOC) \
     INSTRUCTION_ENTRY(WRITEW) \
+    INSTRUCTION_ENTRY(READW) \
+    INSTRUCTION_ENTRY(WRITEB) \
+    INSTRUCTION_ENTRY(READB) \
     INSTRUCTION_ENTRY(PADD) \
     INSTRUCTION_ENTRY(SPTR) \
     INSTRUCTION_ENTRY(PRINT) \
@@ -405,11 +410,43 @@ public:
             case InstructionType::WRITEW:
                 {
                     Word value = this->pop_from_stack().get_content();
-                    void* address = this->pop_from_stack().get_content().as_pointer;
+                    void *address = this->pop_from_stack().get_content().as_pointer;
                     *(Word*)address = value;
                     this->instruction_pointer += 1;
                 }
                 break;
+            case InstructionType::READW:
+                {
+                    void *address = this->pop_from_stack().get_content().as_pointer;
+                    Word value = *((Word*)address);
+                    if (current_instruction.get_operand().as_int != 0) { // value that was read is an object
+                        this->push_on_stack(StackElement(StackElementType::OBJECT, value));
+                    } else {
+                        this->push_on_stack(StackElement(StackElementType::PRIMITIVE, value));
+                    }
+                    this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::WRITEB:
+                {
+                    int64_t value = this->pop_from_stack().get_content().as_int & 0xFF;
+                    char as_byte = (char) value;
+                    void *address = this->pop_from_stack().get_content().as_pointer;
+                    *(char*)address = as_byte;
+                    this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::READB:
+                {
+                    void *address = this->pop_from_stack().get_content().as_pointer;
+                    char value = *((char*)address);
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = (int64_t) value }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+
             case InstructionType::PADD:
                 {
                     size_t offset = (size_t)this->pop_from_stack().get_content().as_int;

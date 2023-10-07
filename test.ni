@@ -1,1 +1,1 @@
-"Hello, World"[0]
+"length".length

@@ -581,8 +581,33 @@ public:
         }
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        auto accessed_type = this->accessed->get_type();
+        const std::string& field_name = this->member_name.get_text();
+        assert(accessed_type->is_object());
+
+        size_t offset = this->accessed->get_type()->get_field(field_name)->get_alignment();
+        this->accessed->emit(code_generator);
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) offset }));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        
+        auto field_type = this->get_type();
+        bool is_field_object = field_type->is_object();
+        size_t field_size;
+        if (field_type->is_object()) {
+            field_size = sizeof(Word);
+        } else {
+            field_size = field_type->get_size();
+        }
+
+        switch (field_size) {
+            case sizeof(char):
+                code_generator.push_instruction(Instruction(InstructionType::READB));
+                break;
+            case sizeof(Word):
+                code_generator.push_instruction(Instruction(InstructionType::READW, Word { .as_int = (int64_t) is_field_object }));
+                break;
+        }
     }
    
 
@@ -907,8 +932,40 @@ public:
         }
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        assert(this->operand->get_type()->is_object());
+        
+        this->operand->emit(code_generator);
+        auto operand_type = this->operand->get_type();
+        // TODO: Add boundary checks
+        size_t data_pointer_offset = operand_type->get_field("@index")->get_alignment();
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) data_pointer_offset }));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        code_generator.push_instruction(Instruction(InstructionType::READW));
+        this->index->emit(code_generator);
+
+        size_t element_size;
+        bool are_elements_objects = this->get_type()->is_object();
+        if (are_elements_objects) {
+            element_size = sizeof(Word);
+        } else {
+            element_size = this->get_type()->get_size();
+        }
+
+        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) element_size }));
+        code_generator.push_instruction(Instruction(InstructionType::IMUL));
+        code_generator.push_instruction(Instruction(InstructionType::PADD));
+
+        switch (element_size) {
+            case sizeof(char): // bytes
+                code_generator.push_instruction(Instruction(InstructionType::READB));
+                break;
+            case sizeof(Word):
+                code_generator.push_instruction(Instruction(InstructionType::READW, Word { .as_int = (int64_t) are_elements_objects }));
+                break;
+            default:
+                assert(false && "not implemented");
+        }
     }
     
     virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
