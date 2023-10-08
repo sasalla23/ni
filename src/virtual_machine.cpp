@@ -123,6 +123,7 @@ enum PredefinedLayouts {
     \
     INSTRUCTION_ENTRY(PUSH) \
     INSTRUCTION_ENTRY(DUP) \
+    INSTRUCTION_ENTRY(POP) \
     \
     INSTRUCTION_ENTRY(HALLOC) \
     INSTRUCTION_ENTRY(WRITEW) \
@@ -178,7 +179,7 @@ enum PredefinedLayouts {
     \
     INSTRUCTION_ENTRY(I2C) \
     INSTRUCTION_ENTRY(I2F) \
-    INSTRUCTION_ENTRY(F2I) \
+    INSTRUCTION_ENTRY(F2I) 
 
 
 #define INSTRUCTION_ENTRY(x) x,
@@ -428,6 +429,12 @@ public:
                 this->push_on_stack(this->get_stack_top());
                 this->instruction_pointer += 1;
                 break;
+            
+            case InstructionType::POP:
+                (void)this->pop_from_stack();
+                this->instruction_pointer += 1;
+                break;
+
             case InstructionType::WRITEW:
                 {
                     Word value = this->pop_from_stack().get_content();

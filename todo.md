@@ -26,10 +26,10 @@
 - [x] member access
 - [x] function calls 
 - [x] type casts
-- [ ] garbage collector
-- [ ] variable definitions
-- [ ] scopes
-- [ ] control flow: if / else / while / continue / while / return
-- [ ] function definitions
+- [x] variable definitions
+- [x] block statements
+- [x] control flow: if / else / while / continue / while
+- [ ] function definitions / return
+- [ ] scopes / garbage collector
 - [ ] command line args 
 - [ ] standard library

@@ -224,9 +224,11 @@ public:
         return this->symbol_table[name];
     }
 
-    void add_variable_symbol(const std::string& name, std::shared_ptr<Type> variable_type) {
+    size_t add_variable_symbol(const std::string& name, std::shared_ptr<Type> variable_type) {
         this->symbol_table[name] = std::make_unique<VariableSymbol>(this->current_layer, variable_type, this->variable_count);
+        size_t id = this->variable_count;
         this->variable_count += 1;
+        return id;
     }
     
     void add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {

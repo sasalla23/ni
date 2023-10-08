@@ -98,6 +98,112 @@ public:
     ~VariableExpression() {}
 };
 
+class IndexingExpression : public Expression {
+friend class BinaryExpression;
+private:
+    std::unique_ptr<Expression> operand;
+    std::unique_ptr<Expression> index;
+    bool is_writable;
+public:
+    IndexingExpression(std::unique_ptr<Expression> operand, std::unique_ptr<Expression> index)
+        : Expression(operand->get_location()), operand(std::move(operand)), index(std::move(index)), is_writable(false)
+    {}
+
+    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
+        indent_layer(output_stream, layer);
+        output_stream << "IndexingExpression" << std::endl;
+        this->operand->append_to_output_stream(output_stream, layer + 1);
+        this->index->append_to_output_stream(output_stream, layer + 1);
+    }
+    
+    virtual void type_check(TypeChecker& type_checker) override {
+        this->operand->type_check(type_checker);
+
+        // TODO: Maybe create global constant for generic lists
+        auto operand_type = this->operand->get_type();
+        //auto inner_type = Type::NO;
+        //if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
+        //    auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
+        //    inner_type = operand_type_as_list_type->get_inner_type();
+        //} else if (operand_type->fits(Type::STRING)) {
+        //    inner_type = Type::CHAR;
+        //} else {
+        //    std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
+        //    std::exit(1);
+        //}
+
+        if (!operand_type->has_field("@index")) {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
+            std::exit(1);
+        }
+
+        const auto& field = operand_type->get_field("@index");
+        auto inner_type = field->get_type();
+        this->is_writable = field->get_access() == FieldAccess::READ_WRITE;
+        
+        if (field->get_access() == FieldAccess::READ || this->is_writable) {
+            this->index->type_check(type_checker);
+            if (!this->index->get_type()->fits(Type::INT)) {
+                std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
+                std::exit(1);
+            }
+            this->set_type(inner_type);
+        } else {
+            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
+            std::exit(1);
+        }
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        assert(this->operand->get_type()->is_object());
+        
+        this->operand->emit(code_generator);
+        auto operand_type = this->operand->get_type();
+        // TODO: Add boundary checks
+        size_t data_pointer_offset = operand_type->get_field("@index")->get_alignment();
+        INT_INST(PUSH, data_pointer_offset);
+        INST(PADD);
+        INST(READW);
+        this->index->emit(code_generator);
+
+        size_t element_size;
+        bool are_elements_objects = this->get_type()->is_object();
+        if (are_elements_objects) {
+            element_size = sizeof(Word);
+        } else {
+            element_size = this->get_type()->get_size();
+        }
+
+        INT_INST(PUSH, element_size);
+        INST(IMUL);
+        INST(PADD);
+
+        switch (element_size) {
+            case sizeof(char): // bytes
+                INST(READB);
+                break;
+            case sizeof(Word):
+                INT_INST(READW, are_elements_objects);
+                break;
+            default:
+                assert(false && "not implemented");
+        }
+    }
+    
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        INT_INST(JEQZ, jump_if_false); 
+        INT_INST(JUMP, jump_if_true); 
+    }
+
+    // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
+    virtual bool is_lvalue() const override {
+        return this->is_writable;
+    }
+
+    ~IndexingExpression() {}
+};
+
 class BinaryExpression : public Expression {
 private:
     std::unique_ptr<Expression> left, right;
@@ -176,6 +282,8 @@ public:
     virtual void emit(CodeGenerator& code_generator) const override {
         if (this->operator_token.get_type() == TokenType::EQUAL) {
             auto as_variable_expression = dynamic_cast<VariableExpression *>(this->left.get());
+            auto as_index_expression = dynamic_cast<IndexingExpression *>(this->left.get());
+
             if (as_variable_expression != nullptr) {
                 size_t id = as_variable_expression->get_id();
                 assert(!this->right->get_type()->fits(Type::VOID));
@@ -183,6 +291,40 @@ public:
                 this->right->emit(code_generator);
                 INST(DUP);
                 INT_INST(VWRITE, id);
+            } else if (as_index_expression != nullptr) {
+                assert(!this->right->get_type()->fits(Type::VOID));
+                as_index_expression->operand->emit(code_generator);
+
+                size_t data_offset = as_index_expression->operand->get_type()->get_field("@index")->get_alignment();
+                INT_INST(PUSH, data_offset);
+                INST(PADD);
+                INT_INST(READW, true);
+
+                // TODO: This is dublicate code
+                size_t element_size;
+                bool is_element_object = as_index_expression->get_type()->is_object();
+                if (is_element_object) {
+                    element_size = sizeof(Word);
+                } else {
+                    element_size = this->left->get_type()->get_size();
+                }
+                as_index_expression->index->emit(code_generator);
+                INT_INST(PUSH, element_size);
+                INST(IMUL);
+                INST(PADD);
+                INST(DUP);
+                this->right->emit(code_generator);
+                switch (element_size) {
+                    case sizeof(char):
+                        INST(WRITEB);
+                        break;
+                    case sizeof(Word):
+                        INST(WRITEW);
+                        break;
+                    default:
+                        assert(false && "unreachable");
+                }
+                INT_INST(READW, is_element_object);
             } else {
                 assert(false && "TODO");
             }
@@ -999,110 +1141,6 @@ public:
     ~ListLiteralExpression() {}
 };
 
-class IndexingExpression : public Expression {
-private:
-    std::unique_ptr<Expression> operand;
-    std::unique_ptr<Expression> index;
-    bool is_writable;
-public:
-    IndexingExpression(std::unique_ptr<Expression> operand, std::unique_ptr<Expression> index)
-        : Expression(operand->get_location()), operand(std::move(operand)), index(std::move(index)), is_writable(false)
-    {}
-
-    virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
-        indent_layer(output_stream, layer);
-        output_stream << "IndexingExpression" << std::endl;
-        this->operand->append_to_output_stream(output_stream, layer + 1);
-        this->index->append_to_output_stream(output_stream, layer + 1);
-    }
-    
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->operand->type_check(type_checker);
-
-        // TODO: Maybe create global constant for generic lists
-        auto operand_type = this->operand->get_type();
-        //auto inner_type = Type::NO;
-        //if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
-        //    auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
-        //    inner_type = operand_type_as_list_type->get_inner_type();
-        //} else if (operand_type->fits(Type::STRING)) {
-        //    inner_type = Type::CHAR;
-        //} else {
-        //    std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
-        //    std::exit(1);
-        //}
-
-        if (!operand_type->has_field("@index")) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
-            std::exit(1);
-        }
-
-        const auto& field = operand_type->get_field("@index");
-        auto inner_type = field->get_type();
-        this->is_writable = field->get_access() == FieldAccess::READ_WRITE;
-        
-        if (field->get_access() == FieldAccess::READ || this->is_writable) {
-            this->index->type_check(type_checker);
-            if (!this->index->get_type()->fits(Type::INT)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
-                std::exit(1);
-            }
-            this->set_type(inner_type);
-        } else {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
-            std::exit(1);
-        }
-    }
-    
-    virtual void emit(CodeGenerator& code_generator) const override {
-        assert(this->operand->get_type()->is_object());
-        
-        this->operand->emit(code_generator);
-        auto operand_type = this->operand->get_type();
-        // TODO: Add boundary checks
-        size_t data_pointer_offset = operand_type->get_field("@index")->get_alignment();
-        INT_INST(PUSH, data_pointer_offset);
-        INST(PADD);
-        INST(READW);
-        this->index->emit(code_generator);
-
-        size_t element_size;
-        bool are_elements_objects = this->get_type()->is_object();
-        if (are_elements_objects) {
-            element_size = sizeof(Word);
-        } else {
-            element_size = this->get_type()->get_size();
-        }
-
-        INT_INST(PUSH, element_size);
-        INST(IMUL);
-        INST(PADD);
-
-        switch (element_size) {
-            case sizeof(char): // bytes
-                INST(READB);
-                break;
-            case sizeof(Word):
-                INT_INST(READW, are_elements_objects);
-                break;
-            default:
-                assert(false && "not implemented");
-        }
-    }
-    
-    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
-        this->emit(code_generator);
-        INT_INST(JEQZ, jump_if_false); 
-        INT_INST(JUMP, jump_if_true); 
-    }
-
-    // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
-    virtual bool is_lvalue() const override {
-        return this->is_writable;
-    }
-
-    ~IndexingExpression() {}
-};
 
 class CastExpression : public Expression {
 private:

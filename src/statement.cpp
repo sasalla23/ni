@@ -10,6 +10,7 @@ public:
 
     virtual void type_check(TypeChecker&) = 0; 
     virtual bool is_definite_return() const = 0;
+    virtual void emit(CodeGenerator&) const = 0;
 
     const Location& get_location() const {
         return this->location;
@@ -46,6 +47,13 @@ public:
         return false;
     }
 
+    virtual void emit(CodeGenerator& code_generator) const override {
+        this->expression->emit(code_generator);
+        if (!this->expression->get_type()->fits(Type::VOID)) {
+            INST(POP);
+        }
+    }
+
     ~ExpressionStatement() {}
 };
 
@@ -53,9 +61,11 @@ class DefinitionStatement : public Statement {
 private:
     Token variable_name;
     std::unique_ptr<Expression> defining_expression;
+    size_t id;
+
 public:
     DefinitionStatement(const Location& start_location, const Token& variable_name, std::unique_ptr<Expression> defining_expression)
-        : Statement(start_location), variable_name(variable_name), defining_expression(std::move(defining_expression))
+        : Statement(start_location), variable_name(variable_name), defining_expression(std::move(defining_expression)), id(0)
     {}
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
@@ -71,11 +81,16 @@ public:
             std::exit(1);
         }
         this->defining_expression->type_check(type_checker);
-        type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+        this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
     virtual bool is_definite_return() const override {
         return false;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        this->defining_expression->emit(code_generator);
+        INT_INST(VWRITE, this->id);
     }
 
     ~DefinitionStatement() {}
@@ -86,12 +101,14 @@ private:
     Token variable_name;
     std::unique_ptr<TypeAnnotation> type_annotation;
     std::unique_ptr<Expression> defining_expression;
+    size_t id;
 public:
     TypedDefinitionStatement(const Location& start_location, const Token& variable_name, std::unique_ptr<TypeAnnotation> type_annotation, std::unique_ptr<Expression> defining_expression)
         : Statement(start_location),
           variable_name(variable_name),
           type_annotation(std::move(type_annotation)),
-          defining_expression(std::move(defining_expression))
+          defining_expression(std::move(defining_expression)),
+          id(0)
     {}
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const override {
@@ -121,11 +138,16 @@ public:
             std::exit(1);
         }
 
-        type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+        this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
     virtual bool is_definite_return() const override {
         return false;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        this->defining_expression->emit(code_generator);
+        INT_INST(VWRITE, this->id);
     }
 
     ~TypedDefinitionStatement() {}
@@ -166,6 +188,12 @@ public:
             }
         }
         return false;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        for (const auto& sub_statement : this->sub_statements) {
+            sub_statement->emit(code_generator);
+        }
     }
 
     ~BlockStatement() {}
@@ -209,6 +237,15 @@ public:
     
     virtual bool is_definite_return() const override {
         return false;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        size_t then_label = code_generator.generate_label();
+        size_t end_label = code_generator.generate_label();
+        this->condition->emit_condition(code_generator, end_label, then_label);
+        INT_INST(LABEL, then_label);
+        this->body->emit(code_generator);
+        INT_INST(LABEL, end_label);
     }
 
     ~IfStatement() {}
@@ -264,6 +301,20 @@ public:
     virtual bool is_definite_return() const override {
         return this->then_body->is_definite_return() && this->else_body->is_definite_return();
     }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        size_t then_label = code_generator.generate_label();
+        size_t else_label = code_generator.generate_label();
+        size_t end_label = code_generator.generate_label();
+
+        this->condition->emit_condition(code_generator, else_label, then_label);
+        INT_INST(LABEL, then_label);
+        this->then_body->emit(code_generator);
+        INT_INST(JUMP, end_label);
+        INT_INST(LABEL, else_label);
+        this->else_body->emit(code_generator);
+        INT_INST(LABEL, end_label);
+    }
 
     ~ElifStatement() {}
 };
@@ -305,6 +356,29 @@ public:
         return false; 
     }
     
+    virtual void emit(CodeGenerator& code_generator) const override {
+
+        size_t previous_break = code_generator.get_break_label();
+        size_t previous_continue = code_generator.get_continue_label();
+
+        size_t continue_label = code_generator.generate_label();
+        size_t after_condition_label = code_generator.generate_label();
+        size_t break_label = code_generator.generate_label();
+
+        code_generator.set_break_label(break_label);
+        code_generator.set_continue_label(continue_label);
+
+        INT_INST(LABEL, continue_label);
+        this->condition->emit_condition(code_generator, break_label, after_condition_label);
+        INT_INST(LABEL, after_condition_label);
+        this->body->emit(code_generator);
+        INT_INST(JUMP, continue_label);
+        INT_INST(LABEL, break_label);
+        
+        code_generator.set_break_label(previous_break);
+        code_generator.set_continue_label(previous_continue);
+    }
+    
     ~WhileStatement() {}
 };
 
@@ -326,6 +400,10 @@ public:
     
     virtual bool is_definite_return() const override {
         return false; 
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        INT_INST(JUMP, code_generator.get_break_label());
     }
 
     ~BreakStatement() {}
@@ -349,6 +427,10 @@ public:
 
     virtual bool is_definite_return() const override {
         return false; 
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        INT_INST(JUMP, code_generator.get_break_label());
     }
 
     ~ContinueStatement() {}
@@ -388,6 +470,11 @@ public:
         return true; 
     }
     
+    virtual void emit(CodeGenerator& code_generator) const override {
+        (void) code_generator;
+        assert(false && "TODO");
+    }
+    
     ~ReturnStatement() {}
 };
 
@@ -412,6 +499,11 @@ public:
     
     virtual bool is_definite_return() const override {
         return true;
+    }
+    
+    virtual void emit(CodeGenerator& code_generator) const override {
+        (void) code_generator;
+        assert(false && "TODO");
     }
 
     ~VoidReturnStatement() {}

@@ -3,8 +3,13 @@ private:
     std::vector<Instruction> program;
     std::vector<char> static_data;
     size_t label_count;
+
+    size_t break_label;
+    size_t continue_label;
 public:
-    CodeGenerator() : program(), static_data(), label_count(0) {}
+    CodeGenerator() :
+        program(), static_data(), label_count(0), break_label(0), continue_label(0) 
+    {}
 
     void push_instruction(Instruction instruction) {
         this->program.push_back(instruction);
@@ -16,6 +21,22 @@ public:
 
     std::vector<char> get_static_data() {
         return std::move(this->static_data);
+    }
+    
+    void set_break_label(size_t break_label) {
+        this->break_label = break_label;
+    }
+    
+    void set_continue_label(size_t continue_label) {
+        this->continue_label = continue_label;
+    }
+
+    size_t get_break_label() const {
+        return this->break_label;
+    }
+    
+    size_t get_continue_label() const {
+        return this->continue_label;
     }
 
     size_t allocate_static_objects(std::shared_ptr<ObjectLayout> layout, size_t count) {

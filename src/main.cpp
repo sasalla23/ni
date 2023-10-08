@@ -29,13 +29,13 @@ int main(void) {
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
 
-    auto expression = parser.parse_expression();
+    auto statement = parser.parse_statement();
     
     TypeChecker type_checker;
-    expression->type_check(type_checker);
+    statement->type_check(type_checker);
 
     CodeGenerator code_generator;
-    expression->emit(code_generator);
+    statement->emit(code_generator);
     code_generator.finalize();
 
     VirtualMachine virtual_machine(std::move(code_generator.get_program()), std::move(code_generator.get_static_data()));
