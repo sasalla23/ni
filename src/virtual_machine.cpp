@@ -114,7 +114,7 @@ union Word {
     INSTRUCTION_ENTRY(READB) \
     INSTRUCTION_ENTRY(PADD) \
     INSTRUCTION_ENTRY(SPTR) \
-    INSTRUCTION_ENTRY(PRINT) \
+    \
     INSTRUCTION_ENTRY(VLOAD) \
     INSTRUCTION_ENTRY(VWRITE) \
     \
@@ -154,7 +154,9 @@ union Word {
     INSTRUCTION_ENTRY(JFLT) \
     INSTRUCTION_ENTRY(JFLE) \
     INSTRUCTION_ENTRY(JFGT) \
-    INSTRUCTION_ENTRY(JFGE)
+    INSTRUCTION_ENTRY(JFGE) \
+    INSTRUCTION_ENTRY(CALL) \
+    INSTRUCTION_ENTRY(NATIVE) 
 
 
 #define INSTRUCTION_ENTRY(x) x,
@@ -267,6 +269,11 @@ public:
 
     size_t get_return_address() const { return this->return_address; }
     size_t get_local_var_offset() const { return this->local_var_offset; }
+};
+
+enum NativeFunctions {
+    NATIVE_PRINT=0,
+    NATIVE_PRINTLN
 };
 
 class VirtualMachine {
@@ -445,16 +452,16 @@ public:
                     this->instruction_pointer += 1;
                 }
                 break;
-            case InstructionType::PRINT:
-                {
-                    void *string_object = this->pop_from_stack().get_content().as_pointer;
-                    size_t size = (size_t)(*(Word*)string_object).as_int;
-                    char *data = (char*)(*(Word*)((char*)string_object + sizeof(Word))).as_pointer;
-                    std::string printed_string(data, size);
-                    std::cout << printed_string;
-                    this->instruction_pointer += 1;
-                }
-                break;
+            //case InstructionType::PRINT:
+            //    {
+            //        void *string_object = this->pop_from_stack().get_content().as_pointer;
+            //        size_t size = (size_t)(*(Word*)string_object).as_int;
+            //        char *data = (char*)(*(Word*)((char*)string_object + sizeof(Word))).as_pointer;
+            //        std::string printed_string(data, size);
+            //        std::cout << printed_string;
+            //        this->instruction_pointer += 1;
+            //    }
+            //    break;
             case InstructionType::IBNEG:
                 {
                     int64_t operand = this->pop_from_stack().get_content().as_int;
@@ -684,6 +691,53 @@ public:
                     size_t id = (size_t)current_instruction.get_operand().as_int;
                     StackElement new_value = this->pop_from_stack();
                     this->set_variable(id, new_value);
+                    this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::CALL:
+                {
+                    size_t return_address = this->instruction_pointer + 1;
+                    size_t local_var_offset = this->local_vars.size();
+                    size_t function_label = (size_t) current_instruction.get_operand().as_int;
+                    this->call_stack.push_back(CallInfo(return_address, local_var_offset));
+                    this->instruction_pointer = function_label;
+                }
+                break;
+
+            case InstructionType::NATIVE:
+                {
+                    size_t native_id = (size_t) current_instruction.get_operand().as_int;
+                    switch (native_id) {
+                        case NATIVE_PRINT:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                void *string_object = this->pop_from_stack().get_content().as_pointer;
+                                size_t size = (size_t)(*(Word*)((char*)string_object + length_offset)).as_int;
+                                char *data = (char*)(*(Word*)((char*)string_object + data_offset)).as_pointer;
+                                
+                                std::string printed_string(data, size);
+                                std::cout << printed_string;
+                            }
+                            break;
+                        case NATIVE_PRINTLN:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                void *string_object = this->pop_from_stack().get_content().as_pointer;
+                                size_t size = (size_t)(*(Word*)((char*)string_object + length_offset)).as_int;
+                                char *data = (char*)(*(Word*)((char*)string_object + data_offset)).as_pointer;
+                                
+                                std::string printed_string(data, size);
+                                std::cout << printed_string << std::endl;
+                            }
+                            break;
+                        default:
+                            assert(false && "not implemented");
+                    }
                     this->instruction_pointer += 1;
                 }
                 break;

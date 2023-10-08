@@ -1,1 +1,1 @@
-"Hello, World"[0]
+print("Hello, World\n")

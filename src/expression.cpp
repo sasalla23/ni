@@ -88,7 +88,7 @@ public:
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
         this->emit(code_generator);
         INT_INST(JEQZ, jump_if_false);
-        INT_INST(JEQZ, jump_if_true);
+        INT_INST(JUMP, jump_if_true);
     }
     
     virtual bool is_lvalue() const override {
@@ -269,6 +269,31 @@ public:
         bool is_float = this->get_type()->fits(Type::FLOAT);
 
         switch (this->operator_token.get_type()) {
+            case TokenType::EQUAL_EQUAL: 
+                this->left->emit(code_generator); 
+                this->right->emit(code_generator); 
+                
+                if (!this->right->get_type()->fits(this->left->get_type())) {
+                    std::cerr << this->get_location() << ": TYPE_ERROR: Both sides of '==' operator must have the same type, instead got <"
+                        << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">." << std::endl;
+                    std::exit(1);
+                }
+                INT_INST(JNEQ, jump_if_false);
+                INT_INST(JUMP, jump_if_true); 
+                break;
+            
+            case TokenType::BANG_EQUAL: 
+                this->left->emit(code_generator); 
+                this->right->emit(code_generator); 
+                
+                if (!this->right->get_type()->fits(this->left->get_type())) {
+                    std::cerr << this->get_location() << ": TYPE_ERROR: Both sides of '!=' operator must have the same type, instead got <"
+                        << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">." << std::endl;
+                    std::exit(1);
+                }
+                INT_INST(JEQ, jump_if_false);
+                INT_INST(JUMP, jump_if_true); 
+                break;
 
 #define COMPARISON_INSTRUCTIONS(TOKEN_TYPE, INSTRUCTION_TYPE) \
             case TokenType:: TOKEN_TYPE : \
@@ -278,8 +303,6 @@ public:
                 INT_INST(JUMP, jump_if_true); \
                 break;
 
-            COMPARISON_INSTRUCTIONS(EQUAL_EQUAL, InstructionType::JNEQ)
-            COMPARISON_INSTRUCTIONS(BANG_EQUAL, InstructionType::JEQ)
             COMPARISON_INSTRUCTIONS(LESS, is_float ? InstructionType::JFGE : InstructionType::JIGE)
             COMPARISON_INSTRUCTIONS(LESS_EQUAL, is_float ? InstructionType::JFGT : InstructionType::JIGT)
             COMPARISON_INSTRUCTIONS(GREATER, is_float ? InstructionType::JFLE : InstructionType::JILE)
@@ -636,6 +659,8 @@ class CallExpression : public Expression {
 private:
     std::unique_ptr<Expression> called;
     std::vector<std::unique_ptr<Expression>> arguments;
+    size_t id;
+    bool is_native;
 public:
     CallExpression(std::unique_ptr<Expression> called, std::vector<std::unique_ptr<Expression>> arguments)
         : Expression(called->get_location()), called(std::move(called)), arguments(std::move(arguments)) 
@@ -686,6 +711,9 @@ public:
                 std::exit(1);
             }
 
+            this->id = function_symbol.get_id();
+            this->is_native = function_symbol.get_is_native();
+
             this->set_type(function_symbol.get_return_type());
         } else if (as_method_call != nullptr) {
             as_method_call->accessed->type_check(type_checker);
@@ -705,6 +733,9 @@ public:
                 std::cerr << this->get_location() << ": TYPE_ERROR: Arguments for function '" << function_name << "' do not fit." << std::endl;
                 std::exit(1);
             }
+            
+            this->id = function_symbol.get_id();
+            this->is_native = function_symbol.get_is_native();
 
             this->set_type(function_symbol.get_return_type());
 
@@ -714,8 +745,22 @@ public:
         }
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        auto as_method_call = dynamic_cast<MemberAccessExpression *>(this->called.get());
+
+        if (as_method_call != nullptr) {
+            as_method_call->accessed->emit(code_generator);
+        }
+
+        for (const auto& argument : this->arguments) {
+            argument->emit(code_generator);
+        }
+
+        if (this->is_native) {
+            INT_INST(NATIVE, this->id);
+        } else {
+            INT_INST(CALL, this->id);
+        }
     }
     
     virtual void emit_condition(CodeGenerator&, size_t, size_t) const {

@@ -150,9 +150,11 @@ class FunctionSymbol : public Symbol {
 private:
     std::shared_ptr<Type> return_type;
     std::vector<std::shared_ptr<Type>> argument_types;
+    size_t id;
+    bool is_native;
 public:
-    FunctionSymbol(size_t layer, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types)
-        : Symbol(layer, SymbolType::FUNCTION), return_type(return_type), argument_types(std::move(argument_types))
+    FunctionSymbol(size_t layer, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types, size_t id, bool is_native)
+        : Symbol(layer, SymbolType::FUNCTION), return_type(return_type), argument_types(std::move(argument_types)), id(id), is_native(is_native)
     {}
 
     // TODO: Have seperate error messages
@@ -175,6 +177,14 @@ public:
         return this->return_type;
     }
 
+    size_t get_id() const {
+        return this->id;
+    }
+
+    bool get_is_native() const {
+        return this->is_native;
+    }
+
     ~FunctionSymbol() {}
 };
 
@@ -186,12 +196,13 @@ private:
     size_t while_statement_layer = 0;
     std::shared_ptr<Type> current_return_type;
     size_t variable_count;
+    size_t function_count;
 public:
     static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
 
     TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0), current_return_type(Type::NO), variable_count(0) {
-        this->add_function_symbol("print", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
-        this->add_function_symbol("print_line", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING });
+        this->add_native_function_symbol("print", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINT);
+        this->add_native_function_symbol("print_line", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINTLN);
         //this->add_variable_symbol("x", Type::INT);
     }
 
@@ -219,7 +230,12 @@ public:
     }
     
     void add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {
-        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types));
+        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types), this->function_count, false);
+        this->function_count += 1;
+    }
+
+    void add_native_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types, size_t id) {
+        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types), id, true);
     }
 
     void push_while_statement() {

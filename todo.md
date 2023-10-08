@@ -24,7 +24,7 @@
 - [x] assignments
 - [x] lists / indexing
 - [x] member access
-- [ ] function calls 
+- [x] function calls 
 - [ ] type casts
 - [ ] garbage collector
 - [ ] variable definitions

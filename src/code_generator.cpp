@@ -4,7 +4,7 @@ private:
     std::vector<char> static_data;
     size_t label_count;
 public:
-    CodeGenerator() : program(), static_data() {}
+    CodeGenerator() : program(), static_data(), label_count(0) {}
 
     void push_instruction(Instruction instruction) {
         this->program.push_back(instruction);
@@ -32,6 +32,7 @@ public:
     size_t generate_label() {
         size_t new_label = this->label_count;
         this->label_count += 1;
+        std::cout << "generating label" << std::endl;
         return new_label;
     }
 
@@ -50,6 +51,8 @@ public:
             case InstructionType::JFLE:
             case InstructionType::JFGT:
             case InstructionType::JFGE:
+
+            case InstructionType::CALL:
                 return true;
             default:
                 return false;
