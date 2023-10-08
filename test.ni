@@ -1,1 +1,1 @@
-["Hello, World", "Foo", "Bar", "Baz"][2].length
+"Hello, World"[0]

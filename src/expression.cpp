@@ -37,6 +37,10 @@ std::ostream& operator<<(std::ostream& output_stream, const Expression& expressi
     return output_stream;
 }
 
+#define INST(t) code_generator.push_instruction(Instruction(InstructionType:: t))  
+#define INT_INST(t, op) code_generator.push_instruction(Instruction(InstructionType:: t, Word { .as_int = (int64_t) (op) }))  
+#define FLOAT_INST(t, op) code_generator.push_instruction(Instruction(InstructionType:: t, Word { .as_float = (double) (op) }))  
+
 class VariableExpression : public Expression {
 private:
     Token variable_name;
@@ -78,13 +82,13 @@ public:
     }
     
     virtual void emit(CodeGenerator& code_generator) const override {
-        code_generator.push_instruction(Instruction(InstructionType::VLOAD, Word { .as_int = (int64_t)this->id }));
+        INT_INST(VLOAD, this->id);
     }
     
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
         this->emit(code_generator);
-        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
-        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
+        INT_INST(JEQZ, jump_if_false);
+        INT_INST(JEQZ, jump_if_true);
     }
     
     virtual bool is_lvalue() const override {
@@ -177,8 +181,8 @@ public:
                 assert(!this->right->get_type()->fits(Type::VOID));
 
                 this->right->emit(code_generator);
-                code_generator.push_instruction(Instruction(InstructionType::DUP));
-                code_generator.push_instruction(Instruction(InstructionType::VWRITE, Word { .as_int = (int64_t) id }));
+                INST(DUP);
+                INT_INST(VWRITE, id);
             } else {
                 assert(false && "TODO");
             }
@@ -188,12 +192,12 @@ public:
             size_t end_label = code_generator.generate_label();
             this->emit_condition(code_generator, false_label, true_label);
             
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) true_label }));
-            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
-            code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) end_label }));
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) false_label }));
-            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) end_label }));
+            INT_INST(LABEL, true_label);
+            INT_INST(PUSH, 1);
+            INT_INST(JUMP, end_label);
+            INT_INST(LABEL, false_label);
+            INT_INST(PUSH, 0);
+            INT_INST(LABEL, end_label);
         } else {
             this->left->emit(code_generator);
             this->right->emit(code_generator);
@@ -202,36 +206,36 @@ public:
             if (left_type->fits(Type::INT)) {
                 switch (this->operator_token.get_type()) {
                     case TokenType::PLUS:
-                        code_generator.push_instruction(Instruction(InstructionType::IADD));
+                        INST(IADD);
                         break;
                     case TokenType::MINUS:
-                        code_generator.push_instruction(Instruction(InstructionType::ISUB));
+                        INST(ISUB);
                         break;
                     case TokenType::STAR:
-                        code_generator.push_instruction(Instruction(InstructionType::IMUL));
+                        INST(IMUL);
                         break;
                     case TokenType::SLASH:
-                        code_generator.push_instruction(Instruction(InstructionType::IDIV));
+                        INST(IDIV);
                         break;
 
                     case TokenType::LESS_LESS:
-                        code_generator.push_instruction(Instruction(InstructionType::ISHL));
+                        INST(ISHL);
                         break;
                     case TokenType::GREATER_GREATER:
-                        code_generator.push_instruction(Instruction(InstructionType::ISHR));
+                        INST(ISHR);
                         break;
                     case TokenType::AND:
-                        code_generator.push_instruction(Instruction(InstructionType::IAND));
+                        INST(IAND);
                         break;
                     case TokenType::PIPE:
-                        code_generator.push_instruction(Instruction(InstructionType::IOR));
+                        INST(IOR);
                         break;
                     case TokenType::HAT:
-                        code_generator.push_instruction(Instruction(InstructionType::IXOR));
+                        INST(IXOR);
                         break;
 
                     case TokenType::PERCENT:
-                        code_generator.push_instruction(Instruction(InstructionType::IMOD));
+                        INST(IMOD);
                         break;
 
                     default:
@@ -240,16 +244,16 @@ public:
             } else if (left_type->fits(Type::FLOAT)) {
                 switch (this->operator_token.get_type()) {
                     case TokenType::PLUS:
-                        code_generator.push_instruction(Instruction(InstructionType::FADD));
+                        INST(FADD);
                         break;
                     case TokenType::MINUS:
-                        code_generator.push_instruction(Instruction(InstructionType::FSUB));
+                        INST(FSUB);
                         break;
                     case TokenType::STAR:
-                        code_generator.push_instruction(Instruction(InstructionType::FMUL));
+                        INST(FMUL);
                         break;
                     case TokenType::SLASH:
-                        code_generator.push_instruction(Instruction(InstructionType::FDIV));
+                        INST(FDIV);
                         break;
                     default:
                         assert(false && "not implemented");
@@ -271,7 +275,7 @@ public:
                 this->left->emit(code_generator); \
                 this->right->emit(code_generator); \
                 code_generator.push_instruction(Instruction((INSTRUCTION_TYPE), Word { .as_int = (int64_t) jump_if_false })); \
-                code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); \
+                INT_INST(JUMP, jump_if_true); \
                 break;
 
             COMPARISON_INSTRUCTIONS(EQUAL_EQUAL, InstructionType::JNEQ)
@@ -285,7 +289,7 @@ public:
                 {
                     size_t mid_label = code_generator.generate_label();
                     this->left->emit_condition(code_generator, jump_if_false, mid_label);
-                    code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) mid_label }));
+                    INT_INST(LABEL, mid_label);
                     this->right->emit_condition(code_generator, jump_if_false, jump_if_true);
                     break;
                 }
@@ -293,7 +297,7 @@ public:
                 {
                     size_t mid_label = code_generator.generate_label();
                     this->left->emit_condition(code_generator, mid_label, jump_if_true);
-                    code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) mid_label }));
+                    INT_INST(LABEL, mid_label);
                     this->right->emit_condition(code_generator, jump_if_false, jump_if_true);
                     break;
                 }
@@ -415,7 +419,7 @@ public:
                         std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse integer literal '" << literal_string << "'." << std::endl;
                         std::exit(1);
                     }
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = parsed }));
+                    INT_INST(PUSH, parsed);
                 }
                 break;
             
@@ -435,27 +439,29 @@ public:
 
                     // allocate string object on the heap
                     // - first push 1 on the stack (1 string object will be allocated)
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+                    INT_INST(PUSH, 1);
+
                     // - use allocate instruction to allocate string object on the heap (1 * sizeof(string) bytes)
-                    code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = STRING_LAYOUT }));
-                    code_generator.push_instruction(Instruction(InstructionType::DUP));
+                    INT_INST(HALLOC, STRING_LAYOUT);
+                    INST(DUP);
 
                     // write string size into first field of string object
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)parsed_string.size() }));
-                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                    INT_INST(PUSH, parsed_string.size());
+                    INST(WRITEW);
                     
                     // duplicate pointer value because it was consumed by WRITEW
-                    code_generator.push_instruction(Instruction(InstructionType::DUP));
+                    INST(DUP);
                     // offset pointer to the data field of the string object
                     // - push offset (in this case there is one word before the data pointer)
                     size_t data_offset = Type::STRING->get_field("data")->get_alignment();
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)data_offset }));
+                    INT_INST(PUSH, data_offset);
                     // - use pointer add instruction to offset the pointer
-                    code_generator.push_instruction(Instruction(InstructionType::PADD));
+                    INST(PADD);
                     // - get the absolute pointer to the string data in the static memory
-                    code_generator.push_instruction(Instruction(InstructionType::SPTR, Word { .as_int = (int64_t)static_offset }));
+                    INT_INST(SPTR, static_offset);
+
                     // - write the pointer address into the data field of the string object
-                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                    INST(WRITEW);
                 }
                 break;
 
@@ -474,7 +480,7 @@ public:
                         std::exit(1);
                     }
 
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t)parsed_string[0] }));
+                    INT_INST(PUSH, parsed_string[0]);
                 }
                 break;
             
@@ -487,16 +493,16 @@ public:
                         std::cout << this->get_location() << ": GENERATION_ERROR: Could not parse float literal '" << literal_string << "'." << std::endl;
                         std::exit(1);
                     }
-                    code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_float = parsed }));
+                    FLOAT_INST(PUSH, parsed);
                 }
                 break;
             
             case TokenType::FALSE_KEYWORD:
-                code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
+                INT_INST(PUSH, 0);
                 break;
 
             case TokenType::TRUE_KEYWORD:
-                code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
+                INT_INST(PUSH, 1);
                 break;
 
             default:
@@ -516,7 +522,7 @@ public:
             assert(false && "unreachable");
         }
 
-        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_address }));
+        INT_INST(JUMP, jump_address);
     }
     
     virtual bool is_lvalue() const override {
@@ -589,8 +595,8 @@ public:
 
         size_t offset = this->accessed->get_type()->get_field(field_name)->get_alignment();
         this->accessed->emit(code_generator);
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) offset }));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        INT_INST(PUSH, offset);
+        INST(PADD);
         
         auto field_type = this->get_type();
         bool is_field_object = field_type->is_object();
@@ -603,10 +609,10 @@ public:
 
         switch (field_size) {
             case sizeof(char):
-                code_generator.push_instruction(Instruction(InstructionType::READB));
+                INST(READB);
                 break;
             case sizeof(Word):
-                code_generator.push_instruction(Instruction(InstructionType::READW, Word { .as_int = (int64_t) is_field_object }));
+                INT_INST(READW, is_field_object);
                 break;
         }
     }
@@ -614,8 +620,8 @@ public:
 
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
         this->emit(code_generator);
-        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
-        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
+        INT_INST(JEQZ, jump_if_false); 
+        INT_INST(JUMP, jump_if_true); 
     }
     
     // TODO: Maybe add notion of a constant/mutable field
@@ -766,31 +772,31 @@ public:
             size_t end_label = code_generator.generate_label();
             this->emit_condition(code_generator, false_label, true_label);
             
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) true_label }));
-            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
-            code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) end_label }));
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) false_label }));
-            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 0 }));
-            code_generator.push_instruction(Instruction(InstructionType::LABEL, Word { .as_int = (int64_t) end_label }));
+            INT_INST(LABEL, true_label);
+            INT_INST(PUSH, 1);
+            INT_INST(JUMP, end_label);
+            INT_INST(LABEL, false_label);
+            INT_INST(PUSH, 0);
+            INT_INST(LABEL, end_label);
         } else {
             this->operand->emit(code_generator); 
             switch (this->operator_token.get_type()) {
                 case TokenType::TILDE:
-                    code_generator.push_instruction(Instruction(InstructionType::IBNEG));
+                    INST(IBNEG);
                     break;
                 case TokenType::PLUS:
                     break;
                 case TokenType::MINUS:
                     if (this->operand->get_type()->fits(Type::FLOAT)) {
-                        code_generator.push_instruction(Instruction(InstructionType::FNEG));
+                        INST(FNEG);
                     } else if (this->operand->get_type()->fits(Type::INT)) {
-                        code_generator.push_instruction(Instruction(InstructionType::INEG));
+                        INST(INEG);
                     } else {
                         assert(false && "unreachable");
                     }
                     break;
                 //case TokenType::BANG:
-                //    code_generator.push_instruction(Instruction(InstructionType::LNEG));
+                //    INST(LNEG);
                 //    break;
                 default:
                     assert(false && "unreachable");
@@ -873,34 +879,34 @@ public:
             std::exit(1);
         }
 
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = 1 }));
-        code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = LIST_LAYOUT }));
+        INT_INST(PUSH, 1);
+        INT_INST(HALLOC, LIST_LAYOUT);
 
         auto list_type = this->get_type();
         size_t length_offset = list_type->get_field("length")->get_alignment();
         size_t capacity_offset = list_type->get_field("capacity")->get_alignment();
         size_t data_offset = list_type->get_field("data")->get_alignment();
 
-        // Write initial length
+        // Write initial length, current stack: LIST_POINTER
         size_t init_length = this->element_initializers.size();
-        code_generator.push_instruction(Instruction(InstructionType::DUP));
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) length_offset }));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_length }));
-        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+        INST(DUP);                     // LIST_POINTER LIST_POINTER
+        INT_INST(PUSH, length_offset); // LIST_POINTER LIST_POINTER LENGTH_OFFSET
+        INST(PADD);                    // LIST_POINTER LENGTH_POINTER
+        INT_INST(PUSH, init_length);   // LIST_POINTER LENGTH_POINTER LENGTH
+        INST(WRITEW);                  // LIST_POINTER
 
         size_t init_capacity = init_length * 2;
         
-        // Write initial capacity
-        code_generator.push_instruction(Instruction(InstructionType::DUP));
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) capacity_offset }));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_capacity }));
-        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+        // Write initial capacity, current stack: LIST_POINTER
+        INST(DUP);                         // LIST_POINTER LIST_POINTER
+        INT_INST(PUSH, capacity_offset);   // LIST_POINTER LIST_POINTER CAPACITY_OFFSET
+        INST(PADD);                        // LIST_POINTER CAPACITY_POINTER
+        INT_INST(PUSH, init_capacity);     // LIST_POINTER CAPACITY_POINTER CAPACITY
+        INST(WRITEW);                      // LIST_POINTER
         
-        code_generator.push_instruction(Instruction(InstructionType::DUP));
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) data_offset }));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        INST(DUP);                         // LIST_POINTER LIST_POINTER
+        INT_INST(PUSH, data_offset);       // LIST_POINTER LIST_POINTER DATA_OFFSET
+        INST(PADD);                        // LIST_POINTER DATA_FIELD_POINTER
         
         size_t element_layout;
         
@@ -912,26 +918,26 @@ public:
         
         size_t element_size = ObjectLayout::predefined_layouts[element_layout]->get_size();
 
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) init_capacity }));
-        code_generator.push_instruction(Instruction(InstructionType::HALLOC, Word { .as_int = (int64_t) element_layout }));
+        INT_INST(PUSH, init_capacity);     // LIST_POINTER DATA_FIELD_POINTER CAPACITY
+        INT_INST(HALLOC, element_layout);  // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER
 
         for (size_t i = 0; i < this->element_initializers.size(); i++) {
-            code_generator.push_instruction(Instruction(InstructionType::DUP));
-            code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) (i * element_size) }));
-            code_generator.push_instruction(Instruction(InstructionType::PADD));
-            this->element_initializers[i]->emit(code_generator);
+            INST(DUP);                                           // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER DATA_POINTER 
+            INT_INST(PUSH, (i * element_size));                  // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER DATA_POINTER ELEMENT_OFFSET
+            INST(PADD);                                          // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER ELEMENT_POINTER
+            this->element_initializers[i]->emit(code_generator); // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER ELEMENT_POINTER ELEMENT_VALUE
             switch (element_size) {
                 case sizeof(char): // bytes
-                    code_generator.push_instruction(Instruction(InstructionType::WRITEB));
+                    INST(WRITEB);                                // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER
                     break;
                 case sizeof(Word):
-                    code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+                    INST(WRITEW);                                // LIST_POINTER DATA_FIELD_POINTER DATA_POINTER
                     break;
                 default:
                     assert(false && "not implemented");
             }
         }
-        code_generator.push_instruction(Instruction(InstructionType::WRITEW));
+        INST(WRITEW); // LIST_POINTER
 
     }
     
@@ -1008,9 +1014,9 @@ public:
         auto operand_type = this->operand->get_type();
         // TODO: Add boundary checks
         size_t data_pointer_offset = operand_type->get_field("@index")->get_alignment();
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) data_pointer_offset }));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
-        code_generator.push_instruction(Instruction(InstructionType::READW));
+        INT_INST(PUSH, data_pointer_offset);
+        INST(PADD);
+        INST(READW);
         this->index->emit(code_generator);
 
         size_t element_size;
@@ -1021,16 +1027,16 @@ public:
             element_size = this->get_type()->get_size();
         }
 
-        code_generator.push_instruction(Instruction(InstructionType::PUSH, Word { .as_int = (int64_t) element_size }));
-        code_generator.push_instruction(Instruction(InstructionType::IMUL));
-        code_generator.push_instruction(Instruction(InstructionType::PADD));
+        INT_INST(PUSH, element_size);
+        INST(IMUL);
+        INST(PADD);
 
         switch (element_size) {
             case sizeof(char): // bytes
-                code_generator.push_instruction(Instruction(InstructionType::READB));
+                INST(READB);
                 break;
             case sizeof(Word):
-                code_generator.push_instruction(Instruction(InstructionType::READW, Word { .as_int = (int64_t) are_elements_objects }));
+                INT_INST(READW, are_elements_objects);
                 break;
             default:
                 assert(false && "not implemented");
@@ -1039,8 +1045,8 @@ public:
     
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
         this->emit(code_generator);
-        code_generator.push_instruction(Instruction(InstructionType::JEQZ, Word { .as_int = (int64_t) jump_if_false })); 
-        code_generator.push_instruction(Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) jump_if_true })); 
+        INT_INST(JEQZ, jump_if_false); 
+        INT_INST(JUMP, jump_if_true); 
     }
 
     // TODO: Make this more general (strings are immutable; this should probably be handled like fields)
