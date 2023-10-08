@@ -763,8 +763,10 @@ public:
         }
     }
     
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        INT_INST(JEQZ, jump_if_false);
+        INT_INST(JUMP, jump_if_true);
     }
     
     virtual bool is_lvalue() const override {
@@ -1152,12 +1154,97 @@ public:
         this->set_type(destination_type);
     }
     
-    virtual void emit(CodeGenerator&) const override {
-        assert(false && "TODO");
+    virtual void emit(CodeGenerator& code_generator) const override {
+        this->casted->emit(code_generator);
+
+        auto source_type = this->casted->get_type();
+        auto dest_type = this->get_type();
+
+        if (dest_type->fits(source_type)) {
+            return;
+        }
+
+        auto char_list_type = std::make_shared<ListType>(Type::CHAR);
+
+        if (source_type->fits(Type::INT)) {
+            if (dest_type->fits(Type::CHAR)) {
+                INST(I2C);
+            } else if (dest_type->fits(Type::STRING)) {
+                INT_INST(NATIVE, NATIVE_INT_TO_STRING);
+            } else if (dest_type->fits(Type::FLOAT)) {
+                INST(I2F);
+            } else {
+                assert(false && "not implemented");
+            }
+        } else if (source_type->fits(Type::CHAR)) {
+            if (dest_type->fits(Type::INT)) {
+                // do nothing
+            } else if (dest_type->fits(Type::STRING)) {
+                //size_t length_offset = Type::STRING->get_field("length")->get_alignment();
+                //size_t data_offset = Type::STRING->get_field("data")->get_alignment();
+
+                //// TODO: Maybe add this as a native function or do it in literally any other way
+                //// Allocate one (1) string
+                //INT_INST(PUSH, 1);
+                //INT_INST(HALLOC, STRING_LAYOUT);
+                //
+                //// Write length (1)
+                //INST(DUP);
+                //INT_INST(PUSH, length_offset);
+                //INST(PADD);
+                //INT_INST(PUSH, 1);
+                //INST(WRITEW);
+
+                //// Write data
+                //INST(DUP);
+                //INT_INST(PUSH, data_offset);
+                //INST(PADD);
+                //INT_INST(PUSH, 1);
+                //INT_INST(HALLOC, CHAR_LAYOUT);
+                //INST(DUP);
+                //this->casted->emit(code_generator);
+                //INST(WRITEB);
+                //INST(WRITEW);
+                INT_INST(NATIVE, NATIVE_CHAR_TO_STRING);
+            } else {
+                assert(false && "not implemented");
+            }
+        } else if (source_type->fits(Type::STRING)) {
+            if (dest_type->fits(char_list_type)) {
+                INT_INST(NATIVE, NATIVE_STRING_TO_CHAR_LIST);
+            } else {
+                assert(false && "not implemented");
+            }
+        } else if (source_type->fits(char_list_type)) {
+            if (dest_type->fits(Type::STRING)) {
+                INT_INST(NATIVE, NATIVE_CHAR_LIST_TO_STRING);
+            } else {
+                assert(false && "not implemented");
+            }
+        } else if (source_type->fits(Type::FLOAT)) {
+            if (dest_type->fits(Type::STRING)) {
+                INT_INST(NATIVE, NATIVE_FLOAT_TO_STRING);
+            } else if (dest_type->fits(Type::INT)) {
+                INST(F2I);
+            } else {
+                assert(false && "not implemented");
+            }
+        } else if (source_type->fits(Type::BOOL)) {
+            if (dest_type->fits(Type::STRING)) {
+                INT_INST(NATIVE, NATIVE_BOOL_TO_STRING);
+            } else if (dest_type->fits(Type::INT)) {
+                // do nothing
+            } else {
+                assert(false && "not implemeneted");
+            }
+        }
+
     }
     
-    virtual void emit_condition(CodeGenerator&, size_t, size_t) const {
-        assert(false && "TODO");
+    virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const {
+        this->emit(code_generator);
+        INT_INST(JEQZ, jump_if_false);
+        INT_INST(JUMP, jump_if_true);
     }
     
     virtual bool is_lvalue() const override {

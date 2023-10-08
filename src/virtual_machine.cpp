@@ -4,6 +4,23 @@ union Word {
     void *as_pointer;
 };
 
+#define PRIMITIVE_LIST \
+   PRIMITIVE_ENTRY(INT) \
+    PRIMITIVE_ENTRY(CHAR) \
+    PRIMITIVE_ENTRY(VOID) \
+    PRIMITIVE_ENTRY(STRING) \
+    PRIMITIVE_ENTRY(FLOAT) \
+    PRIMITIVE_ENTRY(BOOL) \
+
+#define PRIMITIVE_ENTRY(x) x##_LAYOUT,
+enum PredefinedLayouts {
+    LIST_LAYOUT = 0,
+    POINTER_LAYOUT,
+    PRIMITIVE_LIST
+    //PREDEFINED_LAYOUT_COUNT
+};
+#undef PRIMITIVE_ENTRY
+
 //
 //    // ==== Operators
 //
@@ -155,8 +172,13 @@ union Word {
     INSTRUCTION_ENTRY(JFLE) \
     INSTRUCTION_ENTRY(JFGT) \
     INSTRUCTION_ENTRY(JFGE) \
+    \
     INSTRUCTION_ENTRY(CALL) \
-    INSTRUCTION_ENTRY(NATIVE) 
+    INSTRUCTION_ENTRY(NATIVE) \
+    \
+    INSTRUCTION_ENTRY(I2C) \
+    INSTRUCTION_ENTRY(I2F) \
+    INSTRUCTION_ENTRY(F2I) \
 
 
 #define INSTRUCTION_ENTRY(x) x,
@@ -273,7 +295,13 @@ public:
 
 enum NativeFunctions {
     NATIVE_PRINT=0,
-    NATIVE_PRINTLN
+    NATIVE_PRINTLN,
+    NATIVE_INT_TO_STRING,
+    NATIVE_CHAR_TO_STRING,
+    NATIVE_STRING_TO_CHAR_LIST,
+    NATIVE_CHAR_LIST_TO_STRING,
+    NATIVE_FLOAT_TO_STRING,
+    NATIVE_BOOL_TO_STRING
 };
 
 class VirtualMachine {
@@ -371,6 +399,13 @@ public:
         this->local_vars[index] = value;
     }
 
+    void *allocate_object(size_t layout_index, size_t count) {
+        auto object_layout = ObjectLayout::predefined_layouts[layout_index];
+        void *data = std::malloc(count * object_layout->get_size());
+        this->allocated_objects.push_back(AllocatedObject(count, data, object_layout));
+        return data;
+    }
+
     void execute_instruction() {
         const Instruction& current_instruction = this->get_current_instruction();
         switch (current_instruction.get_type()) {
@@ -382,11 +417,9 @@ public:
             case InstructionType::HALLOC:
                 {
                     // TODO: Check for valid layout index
+                    size_t count = (size_t)this->pop_from_stack().get_content().as_int;
                     size_t layout_index = (size_t) current_instruction.get_operand().as_int;
-                    auto object_layout = ObjectLayout::predefined_layouts[layout_index];
-                    Word count = this->pop_from_stack().get_content();
-                    void *data = std::malloc(count.as_int * object_layout->get_size());
-                    this->allocated_objects.push_back(AllocatedObject((size_t)count.as_int, data, object_layout));
+                    void *data = allocate_object(layout_index, count);
                     push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = data }));
                     this->instruction_pointer += 1;
                 }
@@ -709,6 +742,7 @@ public:
                 {
                     size_t native_id = (size_t) current_instruction.get_operand().as_int;
                     switch (native_id) {
+                        // TODO: Improve this
                         case NATIVE_PRINT:
                             {
                                 size_t length_offset = 0;
@@ -735,9 +769,157 @@ public:
                                 std::cout << printed_string << std::endl;
                             }
                             break;
+
+                        case NATIVE_INT_TO_STRING:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                int64_t value = this->pop_from_stack().get_content().as_int;
+                                std::string value_as_string = std::to_string(value);
+                                void *string_object = allocate_object(STRING_LAYOUT, 1);
+
+                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
+
+                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
+                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
+                            }
+                            break;
+
+                        case NATIVE_CHAR_TO_STRING:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                int64_t value = this->pop_from_stack().get_content().as_int;
+                                void *string_object = this->allocate_object(STRING_LAYOUT, 1);
+
+                                void *string_data = this->allocate_object(CHAR_LAYOUT, 1);
+                                *(char*)string_data = (char)value;
+
+                                (*(Word*)((char*)string_object + length_offset)).as_int = 1;
+                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
+                            }
+                            break;
+
+                        case NATIVE_STRING_TO_CHAR_LIST:
+                            {
+                                size_t string_length_offset = 0;
+                                size_t string_data_offset = sizeof(Word);
+                                
+                                size_t list_length_offset = 0;
+                                size_t list_cap_offset = sizeof(Word);
+                                size_t list_data_offset = sizeof(Word) * 2;
+
+                                void *string_object = this->pop_from_stack().get_content().as_pointer;
+                                size_t string_length = (size_t)(*(Word*)((char*)string_object + string_length_offset)).as_int;
+                                void *string_data = (char*)(*(Word*)((char*)string_object + string_data_offset)).as_pointer;
+
+                                void *char_list = this->allocate_object(LIST_LAYOUT, 1);
+                                void *char_list_data = this->allocate_object(CHAR_LAYOUT, string_length);
+                                std::memcpy(char_list_data, string_data, sizeof(char) * string_length);
+                                    
+                                (*(Word*)((char*)char_list + list_length_offset)).as_int = (int64_t) string_length;
+                                (*(Word*)((char*)char_list + list_cap_offset)).as_int = (int64_t) (string_length * 2);
+                                (*(Word*)((char*)char_list + list_data_offset)).as_pointer = char_list_data;
+
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = char_list }));
+                            }
+                            break;
+
+                        case NATIVE_CHAR_LIST_TO_STRING:
+                            {
+                                size_t string_length_offset = 0;
+                                size_t string_data_offset = sizeof(Word);
+                                
+                                size_t list_length_offset = 0;
+                                //size_t list_cap_offset = sizeof(Word);
+                                size_t list_data_offset = sizeof(Word) * 2;
+
+                                void *char_list = this->pop_from_stack().get_content().as_pointer;
+                                size_t char_list_length = (size_t)(*(Word*)((char*)char_list + list_length_offset)).as_int;
+                                char *char_list_data = (char*)(*(Word*)((char*)char_list + list_data_offset)).as_pointer;
+
+                                void *string_object = this->allocate_object(STRING_LAYOUT, 1);
+                                char *string_data = (char*)this->allocate_object(CHAR_LAYOUT, char_list_length);
+                                std::memcpy(string_data, char_list_data, sizeof(char) * char_list_length);
+
+                                (*(Word*)((char*)string_object + string_length_offset)).as_int = (int64_t) char_list_length;
+                                (*(Word*)((char*)string_object + string_data_offset)).as_pointer = (void*) string_data;
+
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
+                            }
+                            break;
+
+                        case NATIVE_FLOAT_TO_STRING:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                double value = this->pop_from_stack().get_content().as_float;
+                                std::string value_as_string = std::to_string(value);
+                                void *string_object = allocate_object(STRING_LAYOUT, 1);
+
+                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
+
+                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
+                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
+                            }
+                            break;
+                        case NATIVE_BOOL_TO_STRING:
+                            {
+                                size_t length_offset = 0;
+                                size_t data_offset = sizeof(Word);
+
+                                int64_t value = this->pop_from_stack().get_content().as_int;
+
+                                // TODO: Do this using static memory instead of allocating a new string every time
+                                std::string value_as_string = value == 0 ? "false" : "true";
+                                void *string_object = allocate_object(STRING_LAYOUT, 1);
+
+                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
+
+                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
+                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                
+                                this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
+                            }
+                            break;
                         default:
                             assert(false && "not implemented");
                     }
+                    this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::I2C:
+                {
+                    int64_t value = this->pop_from_stack().get_content().as_int;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = value & 0xFF }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::I2F:
+                {
+                    int64_t value = this->pop_from_stack().get_content().as_int;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_float = (double) value }));
+                    this->instruction_pointer += 1;
+                }
+                break;
+            case InstructionType::F2I:
+                {
+                    double value = this->pop_from_stack().get_content().as_float;
+                    this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = (int64_t) value }));
                     this->instruction_pointer += 1;
                 }
                 break;

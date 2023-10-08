@@ -25,7 +25,7 @@
 - [x] lists / indexing
 - [x] member access
 - [x] function calls 
-- [ ] type casts
+- [x] type casts
 - [ ] garbage collector
 - [ ] variable definitions
 - [ ] scopes

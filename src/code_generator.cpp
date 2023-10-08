@@ -32,7 +32,6 @@ public:
     size_t generate_label() {
         size_t new_label = this->label_count;
         this->label_count += 1;
-        std::cout << "generating label" << std::endl;
         return new_label;
     }
 

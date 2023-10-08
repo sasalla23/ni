@@ -40,7 +40,7 @@ int main(void) {
 
     VirtualMachine virtual_machine(std::move(code_generator.get_program()), std::move(code_generator.get_static_data()));
     virtual_machine.execute();
-    virtual_machine.print_current_frame();
+    //virtual_machine.print_current_frame();
 
     //auto global_definitions = parser.parse_file();
     //TypeChecker type_checker;

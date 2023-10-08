@@ -1,1 +1,1 @@
-print("Hello, World\n")
+print_line("Hello, World")

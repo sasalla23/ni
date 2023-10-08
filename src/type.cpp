@@ -1,12 +1,4 @@
 
-#define PRIMITIVE_LIST \
-   PRIMITIVE_ENTRY(INT) \
-    PRIMITIVE_ENTRY(CHAR) \
-    PRIMITIVE_ENTRY(VOID) \
-    PRIMITIVE_ENTRY(STRING) \
-    PRIMITIVE_ENTRY(FLOAT) \
-    PRIMITIVE_ENTRY(BOOL) \
-
 class Type;
 
 enum class FieldAccess {
@@ -99,14 +91,6 @@ public:
     virtual ~Type() {}
 };
 
-#define PRIMITIVE_ENTRY(x) x##_LAYOUT,
-enum PredefinedLayouts {
-    LIST_LAYOUT = 0,
-    POINTER_LAYOUT,
-    PRIMITIVE_LIST
-    //PREDEFINED_LAYOUT_COUNT
-};
-#undef PRIMITIVE_ENTRY
 
 // Predefined object layouts
 // -> P = Primitive
