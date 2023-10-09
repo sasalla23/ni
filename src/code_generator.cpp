@@ -6,9 +6,11 @@ private:
 
     size_t break_label;
     size_t continue_label;
+    size_t main_label;
+    bool main_label_found;
 public:
-    CodeGenerator() :
-        program(), static_data(), label_count(0), break_label(0), continue_label(0) 
+    CodeGenerator(size_t initial_label_count) :
+        program(), static_data(), label_count(initial_label_count), break_label(0), continue_label(0), main_label(0), main_label_found(false)
     {}
 
     void push_instruction(Instruction instruction) {
@@ -37,6 +39,11 @@ public:
     
     size_t get_continue_label() const {
         return this->continue_label;
+    }
+
+    void set_main_label(size_t label) {
+        this->main_label = label;
+        this->main_label_found = true;
     }
 
     size_t allocate_static_objects(std::shared_ptr<ObjectLayout> layout, size_t count) {
@@ -80,6 +87,17 @@ public:
     }
 
     void finalize() {
+        // TODO: Check for this in type checker
+        if (!this->main_label_found) {
+            std::cerr << "GENERATION_ERROR: No main function defined..." << std::endl;
+            std::exit(1);
+        }
+
+        this->program.insert(this->program.begin(), Instruction(InstructionType::JUMP, Word { .as_int = (int64_t) this->main_label }));
+        //for (const auto& instruction : this->program) {
+        //    std::cout << instruction << std::endl;
+        //}
+
         std::vector<size_t> label_locations;
         label_locations.resize(this->label_count);
         for (size_t i = 0; i < this->program.size(); i++) {

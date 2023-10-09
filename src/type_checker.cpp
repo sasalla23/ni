@@ -230,10 +230,16 @@ public:
         this->variable_count += 1;
         return id;
     }
+
+    size_t get_function_count() const {
+        return this->function_count;
+    }
     
-    void add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {
-        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types), this->function_count, false);
+    size_t add_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types) {
+        size_t id = this->function_count;
+        this->symbol_table[name] = std::make_unique<FunctionSymbol>(this->current_layer, return_type, std::move(argument_types), id, false);
         this->function_count += 1;
+        return id;
     }
 
     void add_native_function_symbol(const std::string& name, std::shared_ptr<Type> return_type, std::vector<std::shared_ptr<Type>> argument_types, size_t id) {

@@ -471,8 +471,8 @@ public:
     }
     
     virtual void emit(CodeGenerator& code_generator) const override {
-        (void) code_generator;
-        assert(false && "TODO");
+        this->return_value->emit(code_generator);
+        INST(RET);
     }
     
     ~ReturnStatement() {}
@@ -502,8 +502,7 @@ public:
     }
     
     virtual void emit(CodeGenerator& code_generator) const override {
-        (void) code_generator;
-        assert(false && "TODO");
+        INST(RET);
     }
 
     ~VoidReturnStatement() {}

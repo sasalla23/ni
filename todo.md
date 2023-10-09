@@ -29,7 +29,7 @@
 - [x] variable definitions
 - [x] block statements
 - [x] control flow: if / else / while / continue / while
-- [ ] function definitions / return
+- [x] function definitions / return
 - [ ] scopes / garbage collector
 - [ ] command line args 
 - [ ] standard library

@@ -176,6 +176,7 @@ enum PredefinedLayouts {
     \
     INSTRUCTION_ENTRY(CALL) \
     INSTRUCTION_ENTRY(NATIVE) \
+    INSTRUCTION_ENTRY(RET) \
     \
     INSTRUCTION_ENTRY(I2C) \
     INSTRUCTION_ENTRY(I2F) \
@@ -928,6 +929,14 @@ public:
                     double value = this->pop_from_stack().get_content().as_float;
                     this->push_on_stack(StackElement(StackElementType::PRIMITIVE, Word { .as_int = (int64_t) value }));
                     this->instruction_pointer += 1;
+                }
+                break;
+
+            case InstructionType::RET:
+                {
+                    size_t return_address = this->call_stack.back().get_return_address();
+                    this->call_stack.pop_back();
+                    this->instruction_pointer = return_address;
                 }
                 break;
 

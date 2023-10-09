@@ -29,26 +29,28 @@ int main(void) {
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
 
-    auto statement = parser.parse_statement();
-    
+    auto global_definitions = parser.parse_file();
     TypeChecker type_checker;
-    statement->type_check(type_checker);
+    
+    for (auto& global_definition : global_definitions) {
+        global_definition->first_pass(type_checker);
+        //std::cout << *global_definition;
+    }
 
-    CodeGenerator code_generator;
-    statement->emit(code_generator);
+    for (auto& global_definition : global_definitions) {
+        global_definition->type_check(type_checker);
+        //std::cout << *global_definition;
+    }
+
+    CodeGenerator code_generator(type_checker.get_function_count());
+    for (auto& global_definition : global_definitions) {
+        global_definition->emit(code_generator);
+        //std::cout << *global_definition;
+    }
     code_generator.finalize();
 
     VirtualMachine virtual_machine(std::move(code_generator.get_program()), std::move(code_generator.get_static_data()));
     virtual_machine.execute();
-    //virtual_machine.print_current_frame();
-
-    //auto global_definitions = parser.parse_file();
-    //TypeChecker type_checker;
-
-    //for (auto& global_definition : global_definitions) {
-    //    global_definition->type_check(type_checker);
-    //    std::cout << *global_definition;
-    //}
 
     return 0;
 }
