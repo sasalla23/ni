@@ -206,7 +206,7 @@ private:
     Word operand;
 public:
     Instruction(InstructionType type)
-        : type(type), operand(0)
+        : type(type), operand(Word { .as_int = 0 })
     {}
 
     Instruction(InstructionType type, Word operand)

@@ -24,8 +24,14 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
 #include "global_definition.cpp"
 #include "parser.cpp"
 
-int main(void) {
-    Tokenizer tokenizer("test.ni");
+int main(int argc, const char **argv) {
+    if (argc < 2) {
+        std::cerr << "ERROR: Not enough arguments" << std::endl;
+        std::cerr << "USAGE: " << argv[0] << " [input.ni]" << std::endl;
+        std::exit(1);
+    }
+
+    Tokenizer tokenizer(argv[1]);
     auto tokens = tokenizer.collect_tokens();
     Parser parser(std::move(tokens));
 
