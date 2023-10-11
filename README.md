@@ -20,7 +20,7 @@ fun main(): void {
 ``` kotlin
 var x = 23;
 x = x * x;
-print_line(#string x * x);
+print_line(#string x);
 ```
 ### Strings
 ``` kotlin
@@ -53,8 +53,5 @@ fun main(): void {
     var a = 23;
     var b = 2 * a;
     var c = add(a,b);
-
-    // Method calls are just regular function calls
-    var d = a.add(b);
 }
 ```
