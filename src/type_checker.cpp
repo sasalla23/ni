@@ -200,7 +200,14 @@ private:
 public:
     static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
 
-    TypeChecker() : symbol_table(), current_layer(0), while_statement_layer(0), current_return_type(Type::NO), variable_count(0) {
+    TypeChecker() :
+        symbol_table(), 
+        current_layer(0), 
+        while_statement_layer(0), 
+        current_return_type(Type::NO), 
+        variable_count(0),
+        function_count(0)
+    {
         this->add_native_function_symbol("print", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINT);
         this->add_native_function_symbol("print_line", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINTLN);
         //this->add_variable_symbol("x", Type::INT);
