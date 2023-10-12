@@ -37,8 +37,7 @@ public:
             case TokenType::BOOL_KEYWORD: return Type::BOOL;
             default:
                 {
-                    std::cerr << this->get_location() << ": TYPE_ERROR: '" << this->to_string() << "' is not a type." << std::endl;
-                    std::exit(1);
+                    TYPE_ERROR("'" << this->to_string() << "' is not a type.");
                 }
         }
     }
@@ -62,8 +61,7 @@ public:
         auto parsed_inner_type = this->inner_type->to_type();
         
         if (parsed_inner_type->fits(Type::VOID)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: List cannot have content type void." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("List cannot have content type void.");
         }
 
         return std::make_shared<ListType>(this->inner_type->to_type());

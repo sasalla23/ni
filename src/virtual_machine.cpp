@@ -4,6 +4,27 @@ union Word {
     void *as_pointer;
 };
 
+//struct ListRepresentation {
+//    Word length;
+//    Word capacity;
+//    Word data;
+//};
+
+#define LIST_LENGTH_OFFSET 0
+#define LIST_CAPACITY_OFFSET (LIST_LENGTH_OFFSET + sizeof(Word))
+#define LIST_DATA_OFFSET (LIST_CAPACITY_OFFSET + sizeof(Word))
+#define LIST_SIZE (LIST_DATA_OFFSET + sizeof(Word))
+
+
+//struct StringRepresentation {
+//    Word length;
+//    Word data;
+//};
+
+#define STRING_LENGTH_OFFSET 0
+#define STRING_DATA_OFFSET (STRING_LENGTH_OFFSET + sizeof(Word))
+#define STRING_SIZE (STRING_DATA_OFFSET + sizeof(Word))
+
 #define PRIMITIVE_LIST \
    PRIMITIVE_ENTRY(INT) \
     PRIMITIVE_ENTRY(CHAR) \
@@ -746,6 +767,8 @@ public:
                 }
                 break;
 
+#define GET_WORD_AT_OFFSET(pointer, offset) (*(Word*)((char*)(pointer) + offset))
+
             case InstructionType::NATIVE:
                 {
                     size_t native_id = (size_t) current_instruction.get_operand().as_int;
@@ -753,12 +776,9 @@ public:
                         // TODO: Improve this
                         case NATIVE_PRINT:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 void *string_object = this->pop_from_stack().get_content().as_pointer;
-                                size_t size = (size_t)(*(Word*)((char*)string_object + length_offset)).as_int;
-                                char *data = (char*)(*(Word*)((char*)string_object + data_offset)).as_pointer;
+                                size_t size = (size_t)GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int;
+                                char *data = (char*)GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer;
                                 
                                 std::string printed_string(data, size);
                                 std::cout << printed_string;
@@ -766,12 +786,9 @@ public:
                             break;
                         case NATIVE_PRINTLN:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 void *string_object = this->pop_from_stack().get_content().as_pointer;
-                                size_t size = (size_t)(*(Word*)((char*)string_object + length_offset)).as_int;
-                                char *data = (char*)(*(Word*)((char*)string_object + data_offset)).as_pointer;
+                                size_t size = (size_t)GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int;
+                                char *data = (char*)GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer;
                                 
                                 std::string printed_string(data, size);
                                 std::cout << printed_string << std::endl;
@@ -780,9 +797,6 @@ public:
 
                         case NATIVE_INT_TO_STRING:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 int64_t value = this->pop_from_stack().get_content().as_int;
                                 std::string value_as_string = std::to_string(value);
                                 void *string_object = allocate_object(STRING_LAYOUT, 1);
@@ -790,8 +804,8 @@ public:
                                 void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
-                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
-                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
+                                GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer = string_data;
                                 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
                             }
@@ -799,17 +813,14 @@ public:
 
                         case NATIVE_CHAR_TO_STRING:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 int64_t value = this->pop_from_stack().get_content().as_int;
                                 void *string_object = this->allocate_object(STRING_LAYOUT, 1);
 
                                 void *string_data = this->allocate_object(CHAR_LAYOUT, 1);
                                 *(char*)string_data = (char)value;
 
-                                (*(Word*)((char*)string_object + length_offset)).as_int = 1;
-                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = 1;
+                                GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer = string_data;
                                 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
                             }
@@ -817,24 +828,17 @@ public:
 
                         case NATIVE_STRING_TO_CHAR_LIST:
                             {
-                                size_t string_length_offset = 0;
-                                size_t string_data_offset = sizeof(Word);
-                                
-                                size_t list_length_offset = 0;
-                                size_t list_cap_offset = sizeof(Word);
-                                size_t list_data_offset = sizeof(Word) * 2;
-
                                 void *string_object = this->pop_from_stack().get_content().as_pointer;
-                                size_t string_length = (size_t)(*(Word*)((char*)string_object + string_length_offset)).as_int;
-                                void *string_data = (char*)(*(Word*)((char*)string_object + string_data_offset)).as_pointer;
+                                size_t string_length = (size_t)GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int;
+                                void *string_data = (char*)GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer;
 
                                 void *char_list = this->allocate_object(LIST_LAYOUT, 1);
                                 void *char_list_data = this->allocate_object(CHAR_LAYOUT, string_length);
                                 std::memcpy(char_list_data, string_data, sizeof(char) * string_length);
                                     
-                                (*(Word*)((char*)char_list + list_length_offset)).as_int = (int64_t) string_length;
-                                (*(Word*)((char*)char_list + list_cap_offset)).as_int = (int64_t) (string_length * 2);
-                                (*(Word*)((char*)char_list + list_data_offset)).as_pointer = char_list_data;
+                                GET_WORD_AT_OFFSET(char_list, LIST_LENGTH_OFFSET).as_int = (int64_t) string_length;
+                                GET_WORD_AT_OFFSET(char_list, LIST_CAPACITY_OFFSET).as_int = (int64_t) (string_length * 2);
+                                GET_WORD_AT_OFFSET(char_list, LIST_DATA_OFFSET).as_pointer = char_list_data;
 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = char_list }));
                             }
@@ -842,23 +846,17 @@ public:
 
                         case NATIVE_CHAR_LIST_TO_STRING:
                             {
-                                size_t string_length_offset = 0;
-                                size_t string_data_offset = sizeof(Word);
-                                
-                                size_t list_length_offset = 0;
-                                //size_t list_cap_offset = sizeof(Word);
-                                size_t list_data_offset = sizeof(Word) * 2;
 
                                 void *char_list = this->pop_from_stack().get_content().as_pointer;
-                                size_t char_list_length = (size_t)(*(Word*)((char*)char_list + list_length_offset)).as_int;
-                                char *char_list_data = (char*)(*(Word*)((char*)char_list + list_data_offset)).as_pointer;
+                                size_t char_list_length = (size_t)GET_WORD_AT_OFFSET(char_list, LIST_LENGTH_OFFSET).as_int;
+                                char *char_list_data = (char*)GET_WORD_AT_OFFSET(char_list, LIST_DATA_OFFSET).as_pointer;
 
                                 void *string_object = this->allocate_object(STRING_LAYOUT, 1);
                                 char *string_data = (char*)this->allocate_object(CHAR_LAYOUT, char_list_length);
                                 std::memcpy(string_data, char_list_data, sizeof(char) * char_list_length);
 
-                                (*(Word*)((char*)string_object + string_length_offset)).as_int = (int64_t) char_list_length;
-                                (*(Word*)((char*)string_object + string_data_offset)).as_pointer = (void*) string_data;
+                                GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t) char_list_length;
+                                GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer = (void*) string_data;
 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
                             }
@@ -866,9 +864,6 @@ public:
 
                         case NATIVE_FLOAT_TO_STRING:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 double value = this->pop_from_stack().get_content().as_float;
                                 std::string value_as_string = std::to_string(value);
                                 void *string_object = allocate_object(STRING_LAYOUT, 1);
@@ -876,17 +871,14 @@ public:
                                 void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
-                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
-                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
+                                GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer = string_data;
                                 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
                             }
                             break;
                         case NATIVE_BOOL_TO_STRING:
                             {
-                                size_t length_offset = 0;
-                                size_t data_offset = sizeof(Word);
-
                                 int64_t value = this->pop_from_stack().get_content().as_int;
 
                                 // TODO: Do this using static memory instead of allocating a new string every time
@@ -896,8 +888,8 @@ public:
                                 void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
-                                (*(Word*)((char*)string_object + length_offset)).as_int = (int64_t)value_as_string.size();
-                                (*(Word*)((char*)string_object + data_offset)).as_pointer = string_data;
+                                GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
+                                GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer = string_data;
                                 
                                 this->push_on_stack(StackElement(StackElementType::OBJECT, Word { .as_pointer = string_object }));
                             }
@@ -924,6 +916,7 @@ public:
                     this->instruction_pointer += 1;
                 }
                 break;
+
             case InstructionType::F2I:
                 {
                     double value = this->pop_from_stack().get_content().as_float;

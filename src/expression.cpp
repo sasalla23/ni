@@ -58,14 +58,12 @@ public:
     virtual void type_check(TypeChecker& type_checker) override {
         const std::string& name_string = this->variable_name.get_text();
         if (!type_checker.symbol_exists(name_string)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Undefined reference to variable '" << name_string << "'." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Undefined reference to variable '" << name_string << "'.");
         }
 
         const auto& symbol = type_checker.get_symbol(name_string);
         if (symbol->get_symbol_type() != SymbolType::VARIABLE) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' is not a variable." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Symbol '" << name_string << "' is not a variable.");
         }
 
         const auto& variable_symbol = *dynamic_cast<VariableSymbol *>(symbol.get());
@@ -119,22 +117,10 @@ public:
     virtual void type_check(TypeChecker& type_checker) override {
         this->operand->type_check(type_checker);
 
-        // TODO: Maybe create global constant for generic lists
         auto operand_type = this->operand->get_type();
-        //auto inner_type = Type::NO;
-        //if (operand_type->fits(std::make_shared<ListType>(Type::GENERIC))) {
-        //    auto operand_type_as_list_type = dynamic_cast<ListType*>(operand_type.get());
-        //    inner_type = operand_type_as_list_type->get_inner_type();
-        //} else if (operand_type->fits(Type::STRING)) {
-        //    inner_type = Type::CHAR;
-        //} else {
-        //    std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable." << std::endl;
-        //    std::exit(1);
-        //}
 
         if (!operand_type->has_field("@index")) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Type <" << operand_type->to_string() << "> is not indexable");
         }
 
         const auto& field = operand_type->get_field("@index");
@@ -144,13 +130,11 @@ public:
         if (field->get_access() == FieldAccess::READ || this->is_writable) {
             this->index->type_check(type_checker);
             if (!this->index->get_type()->fits(Type::INT)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Index must be an integer." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Index must be an integer.");
             }
             this->set_type(inner_type);
         } else {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type <" << operand_type->to_string() << "> is not indexable" << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Type <" << operand_type->to_string() << "> is not indexable");
         }
     }
     
@@ -247,13 +231,11 @@ public:
 
         if (this->operator_token.get_type() == TokenType::EQUAL) { // Assignment
             if (!this->left->is_lvalue()) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Left expression of assignment is not assignable." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Left expression of assignment is not assignable.");
             }
 
             if (!right_type->fits(left_type)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Cannot assign value of type <" << right_type->to_string() << "> to expression of type <" << left_type->to_string() << ">." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Cannot assign value of type <" << right_type->to_string() << "> to expression of type <" << left_type->to_string() << ">.");
             }
 
             // This is questionable
@@ -267,15 +249,7 @@ public:
                 }
             }
             
-            std::cerr <<
-                this->get_location() <<
-                ": TYPE_ERROR: Operator '" <<
-                this->operator_token.get_text() <<
-                "' is not defined for types <" <<
-                left_type->to_string() <<
-                "> and <" <<
-                right_type->to_string() << ">." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Operator '" << this->operator_token.get_text() << "' is not defined for types <" << left_type->to_string() << "> and <" << right_type->to_string() << ">.");
         }
     }
 
@@ -308,6 +282,7 @@ public:
                 } else {
                     element_size = this->left->get_type()->get_size();
                 }
+
                 as_index_expression->index->emit(code_generator);
                 INT_INST(PUSH, element_size);
                 INST(IMUL);
@@ -317,14 +292,15 @@ public:
                 switch (element_size) {
                     case sizeof(char):
                         INST(WRITEB);
+                        INST(READB);
                         break;
                     case sizeof(Word):
                         INST(WRITEW);
+                        INT_INST(READW, is_element_object);
                         break;
                     default:
                         assert(false && "unreachable");
                 }
-                INT_INST(READW, is_element_object);
             } else {
                 assert(false && "TODO");
             }
@@ -416,9 +392,7 @@ public:
                 this->right->emit(code_generator); 
                 
                 if (!this->right->get_type()->fits(this->left->get_type())) {
-                    std::cerr << this->get_location() << ": TYPE_ERROR: Both sides of '==' operator must have the same type, instead got <"
-                        << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">." << std::endl;
-                    std::exit(1);
+                    TYPE_ERROR("Both sides of '==' operator must have the same type, instead got <" << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">.");
                 }
                 INT_INST(JNEQ, jump_if_false);
                 INT_INST(JUMP, jump_if_true); 
@@ -429,9 +403,7 @@ public:
                 this->right->emit(code_generator); 
                 
                 if (!this->right->get_type()->fits(this->left->get_type())) {
-                    std::cerr << this->get_location() << ": TYPE_ERROR: Both sides of '!=' operator must have the same type, instead got <"
-                        << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">." << std::endl;
-                    std::exit(1);
+                    TYPE_ERROR("Both sides of '!=' operator must have the same type, instead got <" << this->left->get_type()->to_string() << "> and <" << this->right->get_type() << ">.");
                 }
                 INT_INST(JEQ, jump_if_false);
                 INT_INST(JUMP, jump_if_true); 
@@ -824,14 +796,12 @@ public:
 
         auto get_function_symbol = [&](const std::string& function_name) -> const FunctionSymbol& {
             if (!type_checker.symbol_exists(function_name)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Undefined ('" << function_name << "') is not a function." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Undefined ('" << function_name << "') is not a function.");
             }
             
             const auto& symbol = type_checker.get_symbol(function_name);
             if (symbol->get_symbol_type() != SymbolType::FUNCTION) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Defined ('" << function_name << "') is not a function." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Defined ('" << function_name << "') is not a function.");
             }
 
             return *dynamic_cast<FunctionSymbol *>(symbol.get());
@@ -849,8 +819,7 @@ public:
             }
             
             if (!function_symbol.do_args_fit(argument_types)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Arguments for function '" << function_name << "' do not fit." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Arguments for function '" << function_name << "' do not fit.");
             }
 
             this->id = function_symbol.get_id();
@@ -872,8 +841,7 @@ public:
             }
             
             if (!function_symbol.do_args_fit(argument_types)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: Arguments for function '" << function_name << "' do not fit." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Arguments for function '" << function_name << "' do not fit.");
             }
             
             this->id = function_symbol.get_id();
@@ -882,8 +850,7 @@ public:
             this->set_type(function_symbol.get_return_type());
 
         } else {
-            std::cerr << this->get_location() << ": TYPE_ERROR: The given expression is not callable." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("The given expression is not callable.");
         }
     }
     
@@ -945,12 +912,7 @@ public:
             }
         }
 
-        std::cerr << this->get_location() << ": TYPE_ERROR: Unary operator '"
-            << this->operator_token.get_text()
-            << "' is not defined for type <"
-            << operand_type->to_string()
-            << ">." << std::endl;
-        std::exit(1);
+        TYPE_ERROR("Unary operator '" << this->operator_token.get_text() << "' is not defined for type <" << operand_type->to_string() << ">.");
     }
     
     virtual void emit(CodeGenerator& code_generator) const override {
@@ -1037,23 +999,13 @@ public:
             auto element_type = this->element_initializers[0]->get_type();
 
             if (element_type->fits(Type::VOID)) {
-                std::cerr << this->get_location() << ": TYPE_ERROR: List cannot have content type void." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("List cannot have content type void.");
             }
 
             for (size_t i = 1; i < this->element_initializers.size(); i++) {
                 auto& element = this->element_initializers[i];
                 if (!element->get_type()->fits(element_type)) {
-                    std::cerr
-                        << this->get_location()
-                        << ": TYPE_ERROR: Inconsistend type inside of list literal: The first element has type <"
-                        << element_type->to_string()
-                        << "> while the element at index "
-                        << i
-                        << " has type <"
-                        << element->get_type()->to_string()
-                        << ">." << std::endl;
-                    std::exit(1);
+                    TYPE_ERROR("Inconsistend type inside of list literal: The first element has type <" << element_type->to_string() << "> while the element at index " << i << " has type <" << element->get_type()->to_string() << ">.");
                 }
             }
 
@@ -1178,14 +1130,7 @@ public:
             }
             
             if (!found) {
-                std::cerr <<
-                    this->get_location() <<
-                    ": TYPE_ERROR: Cannot cast from <"
-                    << source_type->to_string() <<
-                    "> to <"
-                    << destination_type->to_string() <<
-                    ">." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Cannot cast from <" << source_type->to_string() << "> to <" << destination_type->to_string() << ">.");
             }
         }
         

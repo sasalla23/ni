@@ -77,8 +77,7 @@ public:
     virtual void type_check(TypeChecker& type_checker) override {
         const std::string& name_string = this->variable_name.get_text();
         if (type_checker.symbol_exists(name_string)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' already exists." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Symbol '" << name_string << "' already exists.");
         }
         this->defining_expression->type_check(type_checker);
         this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
@@ -121,8 +120,7 @@ public:
         const std::string& name_string = this->variable_name.get_text();
 
         if (type_checker.symbol_exists(name_string)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << name_string << "' already exists." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Symbol '" << name_string << "' already exists.");
         }
 
         this->defining_expression->type_check(type_checker);
@@ -131,11 +129,7 @@ public:
         auto annotated_type = this->type_annotation->to_type();
 
         if (!variable_type->fits(annotated_type)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Type of defining expression <"
-                << variable_type->to_string()
-                << "> for variable '" << name_string << "' does not fit annotated type <"
-                << annotated_type->to_string() << ">.";
-            std::exit(1);
+            TYPE_ERROR("Type of defining expression <" << variable_type->to_string() << "> for variable '" << name_string << "' does not fit annotated type <" << annotated_type->to_string() << ">.");
         }
 
         this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
@@ -220,16 +214,14 @@ public:
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
-            std::exit(1);
+            TYPE_ERROR("Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">."); 
         }
 
         auto as_definition_statement = dynamic_cast<DefinitionStatement *>(this->body.get());
         auto as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->body.get());
 
         if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Body of if statement cannot be a definition");
         }
 
         this->body->type_check(type_checker);
@@ -274,24 +266,21 @@ public:
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
-            std::exit(1);
+            TYPE_ERROR("Condition of if statement must be a boolean, instead got <" << condition_type->to_string() << ">."); 
         }
 
         auto as_definition_statement = dynamic_cast<DefinitionStatement *>(this->then_body.get());
         auto as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->then_body.get());
 
         if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
-            std::exit(1);
+            TYPE_ERROR(": TYPE_ERROR: Body of if statement cannot be a definition");
         }
         
         as_definition_statement = dynamic_cast<DefinitionStatement *>(this->else_body.get());
         as_typed_definition_statement = dynamic_cast<TypedDefinitionStatement *>(this->else_body.get());
 
         if (as_definition_statement != nullptr || as_typed_definition_statement != nullptr)  {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Body of if statement cannot be a definition" << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Body of if statement cannot be a definition");
         }
 
         this->then_body->type_check(type_checker);
@@ -340,8 +329,7 @@ public:
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Condition of while statement must be a boolean, instead got <" << condition_type->to_string() << ">." << std::endl; 
-            std::exit(1);
+            TYPE_ERROR("Condition of while statement must be a boolean, instead got <" << condition_type->to_string() << ">."); 
         }
 
         type_checker.push_while_statement();
@@ -393,8 +381,7 @@ public:
     
     virtual void type_check(TypeChecker& type_checker) override {
         if (!type_checker.is_in_while_statement()) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Break statements are not allowed outside of while statements." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Break statements are not allowed outside of while statements.");
         }
     }
     
@@ -420,8 +407,7 @@ public:
     
     virtual void type_check(TypeChecker& type_checker) override {
         if (!type_checker.is_in_while_statement()) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Continue statements are not allowed outside of while statements." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Continue statements are not allowed outside of while statements.");
         }
     }
 
@@ -456,13 +442,7 @@ public:
         auto expected_return_type = type_checker.get_current_return_type();
 
         if (!returned_type->fits(expected_return_type)) {
-            std::cerr << this->get_location() <<
-                ": TYPE_ERROR: Return value with type <"
-                << returned_type->to_string()
-                << "> of function does not fit annotated return type <"
-                << expected_return_type->to_string() << ">."
-                << std::endl; 
-            std::exit(1);
+            TYPE_ERROR("Return value with type <" << returned_type->to_string() << "> of function does not fit annotated return type <" << expected_return_type->to_string() << ">.");
         }
     }
     
@@ -492,8 +472,7 @@ public:
     virtual void type_check(TypeChecker& type_checker) override {
         auto expected_return_type = type_checker.get_current_return_type();
         if (!Type::VOID->fits(expected_return_type)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Return statement of non void function must return a value (expected type <" << expected_return_type->to_string() << ">)." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Return statement of non void function must return a value (expected type <" << expected_return_type->to_string() << ">).");
         }
     }
     

@@ -79,8 +79,7 @@ public:
         const std::string& function_name = this->name.get_text();
 
         if (type_checker.symbol_exists(function_name)) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Symbol '" << function_name << "' already exists." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Symbol '" << function_name << "' already exists.");
         }
 
         auto parsed_return_type = this->return_type->to_type();
@@ -107,8 +106,7 @@ public:
             auto argument_name = argument->get_name().get_text();
 
             if (type_checker.symbol_exists(argument_name)) {
-                std::cerr << argument->get_location() << ": TYPE_ERROR: Symbol '" << argument_name << "' already exists." << std::endl;
-                std::exit(1);
+                TYPE_ERROR("Symbol '" << argument_name << "' already exists.");
             }
 
             type_checker.add_variable_symbol(argument_name, argument_type);
@@ -117,8 +115,7 @@ public:
         this->body->type_check(type_checker);
 
         if (!parsed_return_type->fits(Type::VOID) && !this->body->is_definite_return()) {
-            std::cerr << this->get_location() << ": TYPE_ERROR: Function '" << function_name << "' does not definitely return a value." << std::endl;
-            std::exit(1);
+            TYPE_ERROR("Function '" << function_name << "' does not definitely return a value.");
         }
 
         type_checker.pop_scope();
@@ -136,7 +133,6 @@ public:
         }
         this->body->emit(code_generator);
         // TODO: do this only if necessary
-        //
         if (is_main) {
             INST(HALT);
         } else {

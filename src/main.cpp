@@ -13,8 +13,9 @@ void indent_layer(std::ostream& output_stream, size_t layer) {
     }
 }
 
-#include "tokenizer.cpp"
+
 #include "virtual_machine.cpp"
+#include "tokenizer.cpp"
 #include "type.cpp"
 #include "type_annotation.cpp"
 #include "type_checker.cpp"

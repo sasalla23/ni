@@ -1,4 +1,10 @@
 
+#define TYPE_ERROR(message) \
+    do { \
+        std::cerr << this->get_location() << ": TYPE_ERROR: " << message << std::endl; \
+        std::exit(1); \
+    } while(0)
+
 class Type;
 
 enum class FieldAccess {
