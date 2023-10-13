@@ -1,3 +1,4 @@
+
 class CodeGenerator {
 private:
     std::vector<Instruction> program;

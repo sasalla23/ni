@@ -1,4 +1,10 @@
 
+#define PARSE_ERROR(location, message) \
+    do { \
+        std::cerr << (location) << ": PARSE_ERROR: " << message << std::endl; \
+        std::exit(1); \
+    } while(0)
+
 class Parser {
 private:
     std::vector<Token> tokens;
@@ -21,8 +27,7 @@ private:
     Token expect_token(TokenType type) {
         Token current_token = this->consume_token();
         if (current_token.get_type() != type) {
-            std::cerr << current_token.get_location() << ": PARSE_ERROR: Unexpected token of type " << '<' << current_token.get_type() << '>' << ", expected " << '<' << type << '>' << "." << std::endl;
-            std::exit(1);
+            PARSE_ERROR(current_token.get_location(), "Unexpected token of type " << '<' << current_token.get_type() << '>' << ", expected " << '<' << type << '>' << ".");
         }
         return current_token;
     }
@@ -114,15 +119,13 @@ public:
                     auto return_type = this->parse_type_annotation();
                     Token statement_start_token = this->get_current_token();
                     if (statement_start_token.get_type() != TokenType::OPEN_CURLY_BRACE) {
-                        std::cerr << statement_start_token.get_location() << ": PARSE_ERROR: Expected block statement as function body." << std::endl;
-                        std::exit(1);
+                        PARSE_ERROR(statement_start_token.get_location(), "Expected block statement as function body.");
                     }
                     auto body = this->parse_statement();
                     return std::make_unique<FunctionDefinition>(fun_token.get_location(), name, std::move(arguments), std::move(return_type), std::move(body));
                 }
             default:
-                std::cerr << next_token.get_location() << ": PARSE_ERROR: Unexpected token of type <" << next_token.get_type() << "> at the beginning of global definition." << std::endl;
-                std::exit(1);
+                PARSE_ERROR(next_token.get_location(), "Unexpected token of type <" << next_token.get_type() << "> at the beginning of global definition.");
         }
     }
 
@@ -326,8 +329,7 @@ private:
                 left = std::make_unique<VariableExpression>(this->consume_token());
                 break;
             default:
-                std::cerr << current_token.get_location() << ": PARSE_ERROR: Unexpected token of type <" << current_token.get_type() << "> at the beginning of a primary expression." << std::endl;
-                std::exit(1);
+                PARSE_ERROR(current_token.get_location(), "Unexpected token of type <" << current_token.get_type() << "> at the beginning of a primary expression.");
         }
 
         // Parse suffixes like ...(...) or ...[...]

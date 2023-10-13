@@ -165,6 +165,12 @@ std::string read_file_as_string(const std::string& file_path) {
     return string_buffer.str();
 }
 
+#define LEX_ERROR(location, message) \
+    do { \
+        std::cerr << (location) << ": LEX_ERROR: " << message << std::endl; \
+        std::exit(1); \
+    } while (0)
+
 class Tokenizer {
 private:
     const std::string source;
@@ -452,8 +458,7 @@ private:
                     }
                     
                     if (this->current_char() != '"') {
-                        std::cerr << start_location << " LEX_ERROR: Unterminated string literal." << std::endl;
-                        std::exit(1);
+                        LEX_ERROR(start_location, "Unterminated string literal.");
                     }
 
                     this->advance_char();
@@ -474,8 +479,7 @@ private:
                     }
                     
                     if (this->current_char() != '\'') {
-                        std::cerr << start_location << " LEX_ERROR: Unterminated char literal." << std::endl;
-                        std::exit(1);
+                        LEX_ERROR(start_location, "Unterminated char literal.");
                     }
 
                     this->advance_char();
@@ -503,8 +507,7 @@ private:
                             }
 
                             if (decimal_count == 0) {
-                                std::cerr << start_location << ": LEX_ERROR: Float literal is expected to have at least one decimal." << std::endl;
-                                std::exit(1);
+                                LEX_ERROR(start_location, "Float literal is expected to have at least one decimal.");
                             }
 
                             size_t end_pointer = this->source_pointer;
@@ -531,8 +534,7 @@ private:
                             return Token(TokenType::NAME, name_string, start_location);
                         }
                     } else {
-                        std::cerr << this->current_location << ": LEX_ERROR: Unexpected character '" << this->current_char() << "'" << std::endl;
-                        std::exit(1);
+                        LEX_ERROR(this->current_location, "Unexpected character '" << this->current_char() << "'.");
                     }
                 }
         }
