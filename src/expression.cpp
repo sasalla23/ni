@@ -571,7 +571,7 @@ public:
                     }
 
                     // allocate string data as static memory
-                    size_t static_offset = code_generator.allocate_static_objects(ObjectLayout::predefined_layouts[CHAR_LAYOUT], parsed_string.size());
+                    size_t static_offset = code_generator.allocate_static_objects(ObjectLayout::predefined_layouts[BYTE_LAYOUT], parsed_string.size());
                     std::memcpy(code_generator.get_static_data_pointer(static_offset), parsed_string.data(), sizeof(char) * parsed_string.size());
 
                     // allocate string object on the heap
@@ -1163,31 +1163,6 @@ public:
             if (dest_type->fits(Type::INT)) {
                 // do nothing
             } else if (dest_type->fits(Type::STRING)) {
-                //size_t length_offset = Type::STRING->get_field("length")->get_alignment();
-                //size_t data_offset = Type::STRING->get_field("data")->get_alignment();
-
-                //// TODO: Maybe add this as a native function or do it in literally any other way
-                //// Allocate one (1) string
-                //INT_INST(PUSH, 1);
-                //INT_INST(HALLOC, STRING_LAYOUT);
-                //
-                //// Write length (1)
-                //INST(DUP);
-                //INT_INST(PUSH, length_offset);
-                //INST(PADD);
-                //INT_INST(PUSH, 1);
-                //INST(WRITEW);
-
-                //// Write data
-                //INST(DUP);
-                //INT_INST(PUSH, data_offset);
-                //INST(PADD);
-                //INT_INST(PUSH, 1);
-                //INT_INST(HALLOC, CHAR_LAYOUT);
-                //INST(DUP);
-                //this->casted->emit(code_generator);
-                //INST(WRITEB);
-                //INST(WRITEW);
                 INT_INST(NATIVE, NATIVE_CHAR_TO_STRING);
             } else {
                 assert(false && "not implemented");

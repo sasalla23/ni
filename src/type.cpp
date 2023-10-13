@@ -28,6 +28,14 @@ public:
     size_t get_alignment() const { return this->alignment; }
 };
 
+#define PRIMITIVE_LIST \
+   PRIMITIVE_ENTRY(INT) \
+    PRIMITIVE_ENTRY(CHAR) \
+    PRIMITIVE_ENTRY(VOID) \
+    PRIMITIVE_ENTRY(STRING) \
+    PRIMITIVE_ENTRY(FLOAT) \
+    PRIMITIVE_ENTRY(BOOL) \
+
 class Type {
     friend class PrimitiveType;
     friend class ListType;
@@ -69,30 +77,30 @@ public:
         return this->fields.at(field_name);
     }
 
-    void add_field(const std::string& field_name, FieldAccess access, std::shared_ptr<Type> type, size_t& current_alignment) {
+    void add_field(const std::string& field_name, FieldAccess access, std::shared_ptr<Type> type, size_t current_alignment) {
         this->fields[field_name] = std::make_unique<Field>(access, type, current_alignment);
-        if (type->is_object()) {
-            current_alignment += sizeof(Word);
-        } else {
-            current_alignment += type->get_size();
-        }
+        //if (type->is_object()) {
+        //    current_alignment += sizeof(Word);
+        //} else {
+        //    current_alignment += type->get_size();
+        //}
     }
 
     void add_index_field(const std::string& index_field_name, FieldAccess access, std::shared_ptr<Type> type) {
         this->fields["@index"] = std::make_unique<Field>(access, type, this->fields[index_field_name]->get_alignment());
     }
 
-    std::shared_ptr<ObjectLayout> get_layout() const {
-        std::vector<size_t> object_offsets;
+    //std::shared_ptr<ObjectLayout> get_layout() const {
+    //    std::vector<size_t> object_offsets;
 
-        for (const auto& field : this->fields) {
-            if (field.first[0] != '@' && field.second->get_type()->is_object()) {
-                object_offsets.push_back(field.second->get_alignment());
-            }
-        }
+    //    for (const auto& field : this->fields) {
+    //        if (field.first[0] != '@' && field.second->get_type()->is_object()) {
+    //            object_offsets.push_back(field.second->get_alignment());
+    //        }
+    //    }
 
-        return std::make_shared<ObjectLayout>(this->get_size(), std::move(object_offsets));
-    }
+    //    return std::make_shared<ObjectLayout>(this->get_size(), std::move(object_offsets));
+    //}
 
     virtual ~Type() {}
 };
@@ -179,10 +187,9 @@ public:
         // ######## -- length: int
         // ######## -- capacity: int
         // ######## -- data: pointer(array)
-        size_t alignment = 0;
-        this->add_field("length", FieldAccess::READ, Type::INT, alignment);
-        this->add_field("capacity", FieldAccess::INTERNAL, Type::INT, alignment);
-        this->add_field("data", FieldAccess::INTERNAL, internal_array_type, alignment);
+        this->add_field("length", FieldAccess::READ, Type::INT, LIST_LENGTH_OFFSET);
+        this->add_field("capacity", FieldAccess::INTERNAL, Type::INT, LIST_CAPACITY_OFFSET);
+        this->add_field("data", FieldAccess::INTERNAL, internal_array_type, LIST_DATA_OFFSET);
         this->add_index_field("data", FieldAccess::READ_WRITE, inner_type);
     }
 
@@ -212,7 +219,7 @@ public:
     }
 
     virtual size_t get_size() const override {
-        return sizeof(Word) * 3;
+        return LIST_SIZE;
     }
     
     virtual size_t get_layout_index() const override {
@@ -255,8 +262,8 @@ public:
     {
         if (primitive_type == Primitive::STRING) {
             size_t alignment = 0;
-            this->add_field("length", FieldAccess::READ, Type::INT, alignment);
-            this->add_field("data", FieldAccess::INTERNAL, internal_array_type, alignment);
+            this->add_field("length", FieldAccess::READ, Type::INT, STRING_LENGTH_OFFSET);
+            this->add_field("data", FieldAccess::INTERNAL, internal_array_type, STRING_DATA_OFFSET);
             this->add_index_field("data", FieldAccess::READ, Type::CHAR);
         }
     }
@@ -295,7 +302,7 @@ public:
             case Primitive::CHAR:
                 return sizeof(char);
             case Primitive::STRING:
-                return sizeof(int64_t) + sizeof(Word); 
+                return STRING_SIZE; 
             case Primitive::FLOAT:
                 return sizeof(double);
             case Primitive::BOOL:
@@ -307,16 +314,21 @@ public:
         }
     }
 
-#define PRIMITIVE_ENTRY(x) case Primitive:: x : return x##_LAYOUT;
 
     virtual size_t get_layout_index() const override {
-        switch(this->primitive_type) {
-            PRIMITIVE_LIST
-            default:
-                assert(false && "unreachable");
+        if (this->primitive_type == Primitive::STRING) {
+            return STRING_LAYOUT;
+        } else {
+            switch (this->get_size()) {
+                case sizeof(Word):
+                    return WORD_LAYOUT;
+                case sizeof(char):
+                    return BYTE_LAYOUT;
+                default:
+                    assert(false && "unreachable");
+            }
         }
     }
-#undef PRIMITIVE_ENTRY
     
     ~PrimitiveType() {}
 };
@@ -366,10 +378,10 @@ PRIMITIVE_LIST
 std::shared_ptr<Type> Type::NO = std::make_shared<NoType>();
 std::shared_ptr<Type> Type::GENERIC = std::make_shared<GenericType>();
 
-#define PRIMITIVE_ENTRY(x) Type:: x ->get_layout(),
-std::shared_ptr<ObjectLayout> ObjectLayout::predefined_layouts[] = {
-    ListType(Type::GENERIC).get_layout(), // LIST_LAYOUT
-    std::make_shared<ObjectLayout>(sizeof(Word), std::vector<size_t> { 0 }),
-    PRIMITIVE_LIST
-};
-#undef PRIMITIVE_ENTRY
+//#define PRIMITIVE_ENTRY(x) Type:: x ->get_layout(),
+//std::shared_ptr<ObjectLayout> ObjectLayout::predefined_layouts[] = {
+//    ListType(Type::GENERIC).get_layout(), // LIST_LAYOUT
+//    std::make_shared<ObjectLayout>(sizeof(Word), std::vector<size_t> { 0 }),
+//    PRIMITIVE_LIST
+//};
+//#undef PRIMITIVE_ENTRY

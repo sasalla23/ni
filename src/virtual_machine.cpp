@@ -25,119 +25,8 @@ union Word {
 #define STRING_DATA_OFFSET (STRING_LENGTH_OFFSET + sizeof(Word))
 #define STRING_SIZE (STRING_DATA_OFFSET + sizeof(Word))
 
-#define PRIMITIVE_LIST \
-   PRIMITIVE_ENTRY(INT) \
-    PRIMITIVE_ENTRY(CHAR) \
-    PRIMITIVE_ENTRY(VOID) \
-    PRIMITIVE_ENTRY(STRING) \
-    PRIMITIVE_ENTRY(FLOAT) \
-    PRIMITIVE_ENTRY(BOOL) \
 
-#define PRIMITIVE_ENTRY(x) x##_LAYOUT,
-enum PredefinedLayouts {
-    LIST_LAYOUT = 0,
-    POINTER_LAYOUT,
-    PRIMITIVE_LIST
-    //PREDEFINED_LAYOUT_COUNT
-};
-#undef PRIMITIVE_ENTRY
 
-//
-//    // ==== Operators
-//
-//    // Integer arithmetic
-//    IADD,
-//    IMUL,
-//    ISUB,
-//    IDIV,
-//
-//    // Bitwise instructions
-//    ISHL,
-//    ISHR,
-//    IAND,
-//    IXOR,
-//    IOR,
-//    
-//    // Modulo
-//    IMOD,
-//
-//    // Binary / numerical negation
-//    IBNEG, // ~
-//    INEG,
-//
-//    // Float arithmetics
-//    FADD,
-//    FMUL,
-//    FSUB,
-//    FDIV,
-//
-//    // float negation
-//    FNEG,
-//
-//    // Logical negation
-//    NOT,
-//
-//    // ==== Jump instructions
-//    
-//    JUMP,
-//
-//    // Compare ints
-//    JILE,
-//    JILT,
-//    JIGE,
-//    JIGT,
-//
-//    // Compare floats
-//    JFLE,
-//    JFLT,
-//    JFGE,
-//    JFGT,
-//
-//    // Compare words
-//    JEQ,
-//    JNEQ,
-//    JEQZ, // Jump if equal to zero
-//
-//    // ==== Stack manipulation
-//    PUSH [value],
-//    POP,
-//    DUB, // dublicate item on top of the stack
-//    NOP, // No instruction to see here
-//
-//    // Local var read/write
-//    VREAD,
-//    VWRITE,
-//    SETVAR, // Set local var count
-//
-//    // Heap read/write
-//    READW [is object]
-//    WRITEW, stack: ... [pointer] [value]
-//    HALLOC [object layout], stack: ... [count]
-//    HREALLOC,
-//
-//    // static memory
-//    SPTR [offset], // puts absolute pointer to static memory location on the stack (offset is relative to the beginning of the static memory)
-//    
-//    // Pointer arithmetic
-//    PADD,
-//
-//    // Call function
-//    CALL,
-//    RET, 
-//
-//    // Type Conversions
-//    I2C,
-//    I2S,
-//    I2F,
-//    C2I,
-//    F2S,
-//    F2I,
-//
-//    // Call garbage collector
-//    CLEAN,
-//
-//    // Halt
-//    HALT,
 
 #define INSTRUCTION_TYPE_LIST \
     INSTRUCTION_ENTRY(HALT) \
@@ -269,8 +158,6 @@ public:
     Word get_content() const { return this->content; }
 };
 
-
-
 class ObjectLayout {
 private:
     size_t size;
@@ -286,7 +173,22 @@ public:
     const std::vector<size_t>& get_object_offsets() const { return this->object_offsets; }
 };
 
+enum PredefinedLayouts {
+    WORD_LAYOUT = 0,
+    BYTE_LAYOUT,
+    POINTER_LAYOUT,
+    LIST_LAYOUT,
+    STRING_LAYOUT,
+    //PREDEFINED_LAYOUT_COUNT
+};
 
+std::shared_ptr<ObjectLayout> ObjectLayout::predefined_layouts[] = {
+    std::make_shared<ObjectLayout>(sizeof(Word), std::vector<size_t> {   }),                 // WORD_LAYOUT
+    std::make_shared<ObjectLayout>(sizeof(char), std::vector<size_t> {   }),                 // BYTE_LAYOUT
+    std::make_shared<ObjectLayout>(sizeof(Word), std::vector<size_t> { 0 }),                 // POINTER_LAYOUT
+    std::make_shared<ObjectLayout>(LIST_SIZE, std::vector<size_t> { LIST_DATA_OFFSET }),     // LIST_LAYOUT
+    std::make_shared<ObjectLayout>(STRING_SIZE, std::vector<size_t> { STRING_DATA_OFFSET }), // STRING_LAYOUT
+};
 
 class AllocatedObject {
 private:
@@ -801,7 +703,7 @@ public:
                                 std::string value_as_string = std::to_string(value);
                                 void *string_object = allocate_object(STRING_LAYOUT, 1);
 
-                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                void *string_data = allocate_object(BYTE_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
                                 GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
@@ -816,7 +718,7 @@ public:
                                 int64_t value = this->pop_from_stack().get_content().as_int;
                                 void *string_object = this->allocate_object(STRING_LAYOUT, 1);
 
-                                void *string_data = this->allocate_object(CHAR_LAYOUT, 1);
+                                void *string_data = this->allocate_object(BYTE_LAYOUT, 1);
                                 *(char*)string_data = (char)value;
 
                                 GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = 1;
@@ -833,7 +735,7 @@ public:
                                 void *string_data = (char*)GET_WORD_AT_OFFSET(string_object, STRING_DATA_OFFSET).as_pointer;
 
                                 void *char_list = this->allocate_object(LIST_LAYOUT, 1);
-                                void *char_list_data = this->allocate_object(CHAR_LAYOUT, string_length);
+                                void *char_list_data = this->allocate_object(BYTE_LAYOUT, string_length);
                                 std::memcpy(char_list_data, string_data, sizeof(char) * string_length);
                                     
                                 GET_WORD_AT_OFFSET(char_list, LIST_LENGTH_OFFSET).as_int = (int64_t) string_length;
@@ -852,7 +754,7 @@ public:
                                 char *char_list_data = (char*)GET_WORD_AT_OFFSET(char_list, LIST_DATA_OFFSET).as_pointer;
 
                                 void *string_object = this->allocate_object(STRING_LAYOUT, 1);
-                                char *string_data = (char*)this->allocate_object(CHAR_LAYOUT, char_list_length);
+                                char *string_data = (char*)this->allocate_object(BYTE_LAYOUT, char_list_length);
                                 std::memcpy(string_data, char_list_data, sizeof(char) * char_list_length);
 
                                 GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t) char_list_length;
@@ -868,7 +770,7 @@ public:
                                 std::string value_as_string = std::to_string(value);
                                 void *string_object = allocate_object(STRING_LAYOUT, 1);
 
-                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                void *string_data = allocate_object(BYTE_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
                                 GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
@@ -885,7 +787,7 @@ public:
                                 std::string value_as_string = value == 0 ? "false" : "true";
                                 void *string_object = allocate_object(STRING_LAYOUT, 1);
 
-                                void *string_data = allocate_object(CHAR_LAYOUT, value_as_string.size());
+                                void *string_data = allocate_object(BYTE_LAYOUT, value_as_string.size());
                                 std::memcpy(string_data, value_as_string.data(), sizeof(char) * value_as_string.size());
 
                                 GET_WORD_AT_OFFSET(string_object, STRING_LENGTH_OFFSET).as_int = (int64_t)value_as_string.size();
