@@ -197,9 +197,9 @@ private:
     std::shared_ptr<Type> current_return_type;
     size_t variable_count;
     size_t function_count;
-public:
-    static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
 
+    static TypeChecker instance;
+    
     TypeChecker() :
         symbol_table(), 
         current_layer(0), 
@@ -211,6 +211,15 @@ public:
         this->add_native_function_symbol("print", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINT);
         this->add_native_function_symbol("print_line", Type::VOID, std::vector<std::shared_ptr<Type>> { Type::STRING }, NATIVE_PRINTLN);
         //this->add_variable_symbol("x", Type::INT);
+    }
+
+    TypeChecker(TypeChecker& other) = delete;
+
+public:
+    static std::pair<std::shared_ptr<Type>, std::shared_ptr<Type>> ALLOWED_TYPE_CASTS[];
+
+    static TypeChecker& get() {
+        return instance;
     }
 
     std::shared_ptr<Type> get_current_return_type() const {
@@ -294,6 +303,8 @@ public:
 
     ~TypeChecker() {}
 };
+
+TypeChecker TypeChecker::instance;
 
 
 // SOURCE, DEST

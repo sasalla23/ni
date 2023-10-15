@@ -12,7 +12,7 @@ public:
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
-    virtual void type_check(TypeChecker& type_checker) = 0;
+    virtual void type_check() = 0;
     virtual bool is_lvalue() const = 0;
     virtual void emit(CodeGenerator&) const = 0;
     virtual void emit_condition(CodeGenerator& code_generator, size_t jump_if_false, size_t jump_if_true) const = 0 ;
@@ -55,13 +55,13 @@ public:
         output_stream << "VariableExpression(" << this->variable_name.get_text() << ")" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         const std::string& name_string = this->variable_name.get_text();
-        if (!type_checker.symbol_exists(name_string)) {
+        if (!TypeChecker::get().symbol_exists(name_string)) {
             TYPE_ERROR("Undefined reference to variable '" << name_string << "'.");
         }
 
-        const auto& symbol = type_checker.get_symbol(name_string);
+        const auto& symbol = TypeChecker::get().get_symbol(name_string);
         if (symbol->get_symbol_type() != SymbolType::VARIABLE) {
             TYPE_ERROR("Symbol '" << name_string << "' is not a variable.");
         }
@@ -114,8 +114,8 @@ public:
         this->index->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->operand->type_check(type_checker);
+    virtual void type_check() override {
+        this->operand->type_check();
 
         auto operand_type = this->operand->get_type();
 
@@ -128,7 +128,7 @@ public:
         this->is_writable = field->get_access() == FieldAccess::READ_WRITE;
         
         if (field->get_access() == FieldAccess::READ || this->is_writable) {
-            this->index->type_check(type_checker);
+            this->index->type_check();
             if (!this->index->get_type()->fits(Type::INT)) {
                 TYPE_ERROR("Index must be an integer.");
             }
@@ -222,9 +222,9 @@ public:
         this->right->append_to_output_stream(output_stream, layer+1);
     }
 
-    virtual void type_check(TypeChecker& type_checker) {
-        this->left->type_check(type_checker);
-        this->right->type_check(type_checker);
+    virtual void type_check() {
+        this->left->type_check();
+        this->right->type_check();
         
         auto left_type = this->left->get_type();
         auto right_type = this->right->get_type();
@@ -516,7 +516,7 @@ public:
         output_stream << "LiteralExpression(" << this->literal_token.get_text() << ")" << std::endl;
     }
     
-    virtual void type_check(TypeChecker&) override {
+    virtual void type_check() override {
         switch (this->literal_token.get_type()) {
             case TokenType::INT_LITERAL:
                 this->set_type(Type::INT);
@@ -691,8 +691,8 @@ public:
         return this->member_name;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->accessed->type_check(type_checker);
+    virtual void type_check() override {
+        this->accessed->type_check();
         const auto& accessed_type = this->accessed->get_type();
         const std::string& field_name = this->member_name.get_text();
         
@@ -789,17 +789,17 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         // We are 'abusing' the fact that dynamic_cast returns nullptr if the pointer types don't match
         auto as_regular_function_call = dynamic_cast<VariableExpression *>(this->called.get());
         auto as_method_call = dynamic_cast<MemberAccessExpression *>(this->called.get());
 
         auto get_function_symbol = [&](const std::string& function_name) -> const FunctionSymbol& {
-            if (!type_checker.symbol_exists(function_name)) {
+            if (!TypeChecker::get().symbol_exists(function_name)) {
                 TYPE_ERROR("Undefined ('" << function_name << "') is not a function.");
             }
             
-            const auto& symbol = type_checker.get_symbol(function_name);
+            const auto& symbol = TypeChecker::get().get_symbol(function_name);
             if (symbol->get_symbol_type() != SymbolType::FUNCTION) {
                 TYPE_ERROR("Defined ('" << function_name << "') is not a function.");
             }
@@ -814,7 +814,7 @@ public:
 
             std::vector<std::shared_ptr<Type>> argument_types;
             for (auto& argument : this->arguments) {
-                argument->type_check(type_checker);
+                argument->type_check();
                 argument_types.push_back(argument->get_type());
             }
             
@@ -827,7 +827,7 @@ public:
 
             this->set_type(function_symbol.get_return_type());
         } else if (as_method_call != nullptr) {
-            as_method_call->accessed->type_check(type_checker);
+            as_method_call->accessed->type_check();
             const std::string& function_name = as_method_call->get_member_name().get_text();
 
             const auto& function_symbol = get_function_symbol(function_name);
@@ -836,7 +836,7 @@ public:
             argument_types.push_back(as_method_call->accessed->get_type());
 
             for (const auto& argument : this->arguments) {
-                argument->type_check(type_checker);
+                argument->type_check();
                 argument_types.push_back(argument->get_type());
             }
             
@@ -900,8 +900,8 @@ public:
         this->operand->append_to_output_stream(output_stream, layer+1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->operand->type_check(type_checker);
+    virtual void type_check() override {
+        this->operand->type_check();
         auto operand_type = this->operand->get_type();
         
         for (size_t i = 0; i < UNARY_OPERATOR_COUNT; i++) {
@@ -988,12 +988,12 @@ public:
         }
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         if (this->element_initializers.size() == 0) {
             this->set_type(std::make_shared<ListType>(Type::GENERIC));
         } else {
             for (auto& element : this->element_initializers) {
-                element->type_check(type_checker);
+                element->type_check();
             }
 
             auto element_type = this->element_initializers[0]->get_type();
@@ -1109,9 +1109,9 @@ public:
         this->casted->append_to_output_stream(output_stream, layer + 1);
     }
 
-    virtual void type_check(TypeChecker& type_checker) {
+    virtual void type_check() {
         auto destination_type = this->type_annotation->to_type();
-        this->casted->type_check(type_checker);
+        this->casted->type_check();
         auto source_type = this->casted->get_type();
 
         if (source_type->fits(destination_type)) {

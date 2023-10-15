@@ -6,8 +6,8 @@ public:
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
-    virtual void type_check(TypeChecker& type_checker) = 0;
-    virtual void first_pass(TypeChecker& type_checker) = 0;
+    virtual void type_check() = 0;
+    virtual void first_pass() = 0;
     virtual void emit(CodeGenerator&) const = 0;
 
     const Location& get_location() const {
@@ -75,10 +75,10 @@ public:
         this->body->append_to_output_stream(output_stream, layer + 1);
     }
 
-    virtual void first_pass(TypeChecker& type_checker) override {
+    virtual void first_pass() override {
         const std::string& function_name = this->name.get_text();
 
-        if (type_checker.symbol_exists(function_name)) {
+        if (TypeChecker::get().symbol_exists(function_name)) {
             TYPE_ERROR("Symbol '" << function_name << "' already exists.");
         }
 
@@ -90,35 +90,35 @@ public:
             argument_types.push_back(argument_type);
         }
         
-        this->id = type_checker.add_function_symbol(function_name, parsed_return_type, std::move(argument_types));
+        this->id = TypeChecker::get().add_function_symbol(function_name, parsed_return_type, std::move(argument_types));
     }
 
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         // TODO: somehow save the result from the first pass
         auto parsed_return_type = this->return_type->to_type();
         const std::string& function_name = this->name.get_text();
-        type_checker.set_current_return_type(parsed_return_type);
+        TypeChecker::get().set_current_return_type(parsed_return_type);
 
-        type_checker.push_scope();
+        TypeChecker::get().push_scope();
 
         for (const auto& argument : this->arguments) {
             auto argument_type = argument->get_type()->to_type();
             auto argument_name = argument->get_name().get_text();
 
-            if (type_checker.symbol_exists(argument_name)) {
+            if (TypeChecker::get().symbol_exists(argument_name)) {
                 TYPE_ERROR("Symbol '" << argument_name << "' already exists.");
             }
 
-            type_checker.add_variable_symbol(argument_name, argument_type);
+            TypeChecker::get().add_variable_symbol(argument_name, argument_type);
         }
 
-        this->body->type_check(type_checker);
+        this->body->type_check();
 
         if (!parsed_return_type->fits(Type::VOID) && !this->body->is_definite_return()) {
             TYPE_ERROR("Function '" << function_name << "' does not definitely return a value.");
         }
 
-        type_checker.pop_scope();
+        TypeChecker::get().pop_scope();
     }
 
     virtual void emit(CodeGenerator& code_generator) const override {

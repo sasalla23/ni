@@ -8,7 +8,7 @@ public:
 
     virtual void append_to_output_stream(std::ostream& output_stream, size_t layer = 0) const = 0;
 
-    virtual void type_check(TypeChecker&) = 0; 
+    virtual void type_check() = 0; 
     virtual bool is_definite_return() const = 0;
     virtual void emit(CodeGenerator&) const = 0;
 
@@ -39,8 +39,8 @@ public:
     }
 
     // TODO: Maybe add warning if output type is non void?
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->expression->type_check(type_checker);
+    virtual void type_check() override {
+        this->expression->type_check();
     }
 
     virtual bool is_definite_return() const override {
@@ -74,13 +74,13 @@ public:
         this->defining_expression->append_to_output_stream(output_stream, layer + 1);
     }
 
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         const std::string& name_string = this->variable_name.get_text();
-        if (type_checker.symbol_exists(name_string)) {
+        if (TypeChecker::get().symbol_exists(name_string)) {
             TYPE_ERROR("Symbol '" << name_string << "' already exists.");
         }
-        this->defining_expression->type_check(type_checker);
-        this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+        this->defining_expression->type_check();
+        this->id = TypeChecker::get().add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
     virtual bool is_definite_return() const override {
@@ -116,14 +116,14 @@ public:
         this->defining_expression->append_to_output_stream(output_stream, layer + 1);
     }
 
-    virtual void type_check(TypeChecker& type_checker) override {
+    virtual void type_check() override {
         const std::string& name_string = this->variable_name.get_text();
 
-        if (type_checker.symbol_exists(name_string)) {
+        if (TypeChecker::get().symbol_exists(name_string)) {
             TYPE_ERROR("Symbol '" << name_string << "' already exists.");
         }
 
-        this->defining_expression->type_check(type_checker);
+        this->defining_expression->type_check();
         
         auto variable_type = this->defining_expression->get_type();
         auto annotated_type = this->type_annotation->to_type();
@@ -132,7 +132,7 @@ public:
             TYPE_ERROR("Type of defining expression <" << variable_type->to_string() << "> for variable '" << name_string << "' does not fit annotated type <" << annotated_type->to_string() << ">.");
         }
 
-        this->id = type_checker.add_variable_symbol(name_string, this->defining_expression->get_type());
+        this->id = TypeChecker::get().add_variable_symbol(name_string, this->defining_expression->get_type());
     }
     
     virtual bool is_definite_return() const override {
@@ -163,14 +163,14 @@ public:
             this->sub_statements[i]->append_to_output_stream(output_stream, layer + 1);
         }
     }
-    virtual void type_check(TypeChecker& type_checker) override {
-        type_checker.push_scope();
+    virtual void type_check() override {
+        TypeChecker::get().push_scope();
 
         for (auto& statement : this->sub_statements) {
-            statement->type_check(type_checker);
+            statement->type_check();
         }
 
-        type_checker.pop_scope();
+        TypeChecker::get().pop_scope();
     }
     
     virtual bool is_definite_return() const override {
@@ -209,8 +209,8 @@ public:
         this->body->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->condition->type_check(type_checker);
+    virtual void type_check() override {
+        this->condition->type_check();
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
@@ -224,7 +224,7 @@ public:
             TYPE_ERROR("Body of if statement cannot be a definition");
         }
 
-        this->body->type_check(type_checker);
+        this->body->type_check();
     }
     
     virtual bool is_definite_return() const override {
@@ -261,8 +261,8 @@ public:
         this->else_body->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->condition->type_check(type_checker);
+    virtual void type_check() override {
+        this->condition->type_check();
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
@@ -283,8 +283,8 @@ public:
             TYPE_ERROR("Body of if statement cannot be a definition");
         }
 
-        this->then_body->type_check(type_checker);
-        this->else_body->type_check(type_checker);
+        this->then_body->type_check();
+        this->else_body->type_check();
     }
     
     virtual bool is_definite_return() const override {
@@ -324,19 +324,19 @@ public:
         this->body->append_to_output_stream(output_stream, layer + 1);
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->condition->type_check(type_checker);
+    virtual void type_check() override {
+        this->condition->type_check();
         auto condition_type = this->condition->get_type();
         
         if (!condition_type->fits(Type::BOOL)) {
             TYPE_ERROR("Condition of while statement must be a boolean, instead got <" << condition_type->to_string() << ">."); 
         }
 
-        type_checker.push_while_statement();
+        TypeChecker::get().push_while_statement();
 
-        this->body->type_check(type_checker);
+        this->body->type_check();
 
-        type_checker.pop_while_statement();
+        TypeChecker::get().pop_while_statement();
     }
 
 
@@ -379,8 +379,8 @@ public:
         output_stream << "BreakStatement" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        if (!type_checker.is_in_while_statement()) {
+    virtual void type_check() override {
+        if (!TypeChecker::get().is_in_while_statement()) {
             TYPE_ERROR("Break statements are not allowed outside of while statements.");
         }
     }
@@ -405,8 +405,8 @@ public:
         output_stream << "ContinueStatement" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        if (!type_checker.is_in_while_statement()) {
+    virtual void type_check() override {
+        if (!TypeChecker::get().is_in_while_statement()) {
             TYPE_ERROR("Continue statements are not allowed outside of while statements.");
         }
     }
@@ -436,10 +436,10 @@ public:
         this->return_value->append_to_output_stream(output_stream, layer + 1);
     }
 
-    virtual void type_check(TypeChecker& type_checker) override {
-        this->return_value->type_check(type_checker);
+    virtual void type_check() override {
+        this->return_value->type_check();
         auto returned_type = this->return_value->get_type();
-        auto expected_return_type = type_checker.get_current_return_type();
+        auto expected_return_type = TypeChecker::get().get_current_return_type();
 
         if (!returned_type->fits(expected_return_type)) {
             TYPE_ERROR("Return value with type <" << returned_type->to_string() << "> of function does not fit annotated return type <" << expected_return_type->to_string() << ">.");
@@ -469,8 +469,8 @@ public:
         output_stream << "ReturnStatement" << std::endl;
     }
     
-    virtual void type_check(TypeChecker& type_checker) override {
-        auto expected_return_type = type_checker.get_current_return_type();
+    virtual void type_check() override {
+        auto expected_return_type = TypeChecker::get().get_current_return_type();
         if (!Type::VOID->fits(expected_return_type)) {
             TYPE_ERROR("Return statement of non void function must return a value (expected type <" << expected_return_type->to_string() << ">).");
         }

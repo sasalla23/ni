@@ -37,19 +37,18 @@ int main(int argc, const char **argv) {
     Parser parser(std::move(tokens));
 
     auto global_definitions = parser.parse_file();
-    TypeChecker type_checker;
     
     for (auto& global_definition : global_definitions) {
-        global_definition->first_pass(type_checker);
+        global_definition->first_pass();
         //std::cout << *global_definition;
     }
 
     for (auto& global_definition : global_definitions) {
-        global_definition->type_check(type_checker);
+        global_definition->type_check();
         //std::cout << *global_definition;
     }
 
-    CodeGenerator code_generator(type_checker.get_function_count());
+    CodeGenerator code_generator(TypeChecker::get().get_function_count());
     for (auto& global_definition : global_definitions) {
         global_definition->emit(code_generator);
         //std::cout << *global_definition;
